@@ -17,14 +17,15 @@ import copy
 def train():
     MAX_EPOCH = 50
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
+    # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240513')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
 
 
     # sl.split_data(MEDIA_PATH)
@@ -48,7 +49,7 @@ def train():
     # percent_train
 
     DATA = [
-        '128_05_20_0_0_0_4_0_0.99',
+        '128_05_20_0_0_0_5_0_0.99',
     ]
     BATCH_SIZE_TRAINING = [
         64,
