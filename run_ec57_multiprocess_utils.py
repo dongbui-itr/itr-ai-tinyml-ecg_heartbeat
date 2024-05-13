@@ -3,11 +3,14 @@ from __future__ import division
 from __future__ import print_function
 
 import datetime
+import glob
 import os
 import time
 from collections import defaultdict
 import operator
 from os.path import basename, dirname
+
+import keras.models
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
@@ -46,7 +49,7 @@ def bxb(predict_sample, predict_symbol, ref_sample, ref_symbol, epsilon):
     return list(ref_symbol), list(compare_symbol)
 
 
-def beat_classification(model,
+def beat_classification_2(model,
                         file_name,
                         channel_ecg,
                         beat_datastore,
@@ -55,6 +58,7 @@ def beat_classification(model,
     """
 
     """
+    print(file_name)
     sampling_rate = beat_datastore["sampling_rate"]
     beat_class = beat_datastore["beat_class"]
     beat_num_block = beat_datastore["num_block"]
@@ -121,68 +125,89 @@ def beat_classification(model,
             data_len = len(buf_ecg)
             beat_label_len = beat_feature_len // beat_num_block
             data_index = np.arange(beat_feature_len)[None, :] + \
-                         np.arange(0, data_len, beat_feature_len)[:, None]
+                         np.arange(0, data_len - beat_feature_len // 2, beat_feature_len - beat_label_len * 2)[:, None]
 
             _samp_from = (samp_from * sampling_rate) // fs_origin
             _samp_to = (samp_to * sampling_rate) // fs_origin
             if data_model.MODE == 0:
                 buf_frame = []
+                data_index_frame = []
                 for fr in data_model.OFFSET_FRAME_BEAT:
                     if len(buf_frame) == 0:
                         buf_frame = np.concatenate((buf_ecg[fr:], np.full(fr, 0)))[data_index]
+                        data_index_frame = data_index
                     else:
                         buf_frame = np.concatenate(
                             (buf_frame, np.concatenate((buf_ecg[fr:], np.full(fr, 0)))[data_index]))
+                        data_index_frame = np.concatenate((data_index_frame, data_index + fr))
 
                 buf_frame = np.asarray(buf_frame)
+                data_index_frame = np.asarray(data_index_frame)
+
                 group_beat_prob = model.predict(buf_frame)
                 group_beat_candidate = np.argmax(group_beat_prob, axis=-1)
+
+                # if True:
+                #     for i, i_frame in enumerate(buf_frame):
+                #         indx = np.flatnonzero(group_beat_candidate[i] == 1) * 32
+                #
+                #         plt.plot(i_frame)
+                #         plt.plot(indx, i_frame[indx], 'r*')
+                #         plt.show()
 
                 label_index = np.arange(beat_label_len)[None, :] + \
                               np.arange(0, beat_feature_len, beat_label_len)[:, None]
 
-                group_bwr_frame = buf_bwr_ecg[data_index]
+                group_bwr_frame = buf_bwr_ecg[data_index_frame]
                 beats = []
                 symbols = []
                 amps = []
 
-                for beat_candidate in group_beat_candidate:
+                for i_cnt, beat_candidate in enumerate(group_beat_candidate):
                     beat_candidate = np.asarray(beat_candidate).reshape((-1, beat_num_block))
-                    for group_beat, group_bwr_buff, group_offset in zip(beat_candidate,
-                                                                        group_bwr_frame,
-                                                                        data_index):
-                        _group_offset = group_offset[label_index]
-                        _index = np.where(abs(np.diff(group_beat)) > 0)[0] + 1
-                        _group_beat = np.split(group_beat, _index)
-                        _group_offset = np.split(_group_offset, _index)
-                        for gbeat, goffset in zip(_group_beat, _group_offset):
-                            if np.max(gbeat) > beat_ind["NOTABEAT"]:
-                                goffset = np.asarray(goffset).flatten()
-                                index_ext = goffset.copy()
-                                if (goffset[0] - beat_label_len) >= 0:
-                                    index_ext = np.concatenate((np.arange((goffset[0] - beat_label_len),
-                                                                          goffset[0]), index_ext))
+                    _beats = []
+                    group_bwr_buff = group_bwr_frame[i_cnt]
+                    group_offset = data_index_frame[i_cnt]
+                    group_beat = beat_candidate[0]
+                    _group_offset = group_offset[label_index]
+                    _index = np.flatnonzero(abs(np.diff(group_beat)) > 0) + 1
+                    _group_beat = np.split(group_beat, _index)
+                    _group_offset = np.split(_group_offset, _index)
+                    for gbeat, goffset in zip(_group_beat, _group_offset):
+                        if np.max(gbeat) > beat_ind["NOTABEAT"]:
+                            goffset = np.asarray(goffset).flatten()
+                            index_ext = goffset.copy()
+                            if (goffset[0] - beat_label_len) >= 0:
+                                index_ext = np.concatenate((np.arange((goffset[0] - beat_label_len),
+                                                                      goffset[0]), index_ext))
 
-                                if (goffset[-1] + beat_label_len) < beat_feature_len:
-                                    index_ext = np.concatenate((index_ext,
-                                                                np.arange(goffset[-1], (goffset[-1] + beat_label_len))))
+                            if (goffset[-1] + beat_label_len) < beat_feature_len:
+                                index_ext = np.concatenate((index_ext,
+                                                            np.arange(goffset[-1], (goffset[-1] + beat_label_len))))
 
-                                gbuff = np.asarray(group_bwr_buff[index_ext]).flatten()
-                                flip_g = gbuff * -1.0
-                                peaks_up = np.argmax(gbuff)
-                                peaks_down = np.argmax(flip_g)
-                                if abs(gbuff[peaks_up]) > abs(flip_g[peaks_down]):
-                                    ma = abs(gbuff[peaks_up])
-                                    peaks = peaks_up
-                                else:
-                                    ma = abs(flip_g[peaks_down])
-                                    peaks = peaks_down
+                            gbuff = np.asarray(group_bwr_buff[index_ext - group_offset[0]]).flatten()
+                            flip_g = gbuff * -1.0
+                            peaks_up = np.argmax(gbuff)
+                            peaks_down = np.argmax(flip_g)
+                            if abs(gbuff[peaks_up]) > abs(flip_g[peaks_down]):
+                                ma = abs(gbuff[peaks_up])
+                                peaks = peaks_up
+                            else:
+                                ma = abs(flip_g[peaks_down])
+                                peaks = peaks_down
 
-                                amps.append(ma)
-                                beats.append(peaks + index_ext[0])
-                                qr_count = Counter(gbeat)
-                                qr = qr_count.most_common(1)[0][0]
-                                symbols.append(beat_inv[qr])
+                            amps.append(ma)
+                            beats.append(peaks + index_ext[0])
+                            _beats.append(peaks + index_ext[0])
+                            qr_count = Counter(gbeat)
+                            qr = qr_count.most_common(1)[0][0]
+                            symbols.append(beat_inv[qr])
+
+                    # plt.plot(_beats - group_offset[0], buf_frame[i_cnt][_beats - group_offset[0]], 'r*')
+                    # plt.show()
+                    # a=10
+                    # if len(np.flatnonzero(np.diff(np.asarray(beats) * 360 // 128) > 1000)) > 0:
+                    #     a=10
 
                 if len(beats) > 0:
                     symbols = [x for _, x in sorted(zip(beats, symbols))]
@@ -228,14 +253,16 @@ def beat_classification(model,
                             p = np.argmax(_amp)
                             amps.append(max(_amp))
                             beats.append(_beat[p])
+                            if len(np.flatnonzero(np.diff(beats) > 1000)) > 0:
+                                a = 10
 
                         beats = np.asarray(beats)
                         symbols = np.asarray(symbols)
                         amps = np.asarray(amps)
-                        try:
-                            beats, symbols, amps = beat_select(beats, symbols, amps, buf_bwr_ecg, sampling_rate)
-                        except Exception as err:
-                            print(err)
+                        # try:
+                        #     beats, symbols, amps = beat_select(beats, symbols, amps, buf_bwr_ecg, sampling_rate)
+                        # except Exception as err:
+                        #     print(err)
 
                         # # region debug
                         # t = np.arange(_samp_from, _samp_from + len(buf_ecg), 1) / sampling_rate
@@ -334,6 +361,8 @@ def beat_classification(model,
                     # # endregion debug
 
             if img_directory is not None:
+                # if True:
+                #     img_directory = os.path.dirname(beat_datastore)
                 fig, axx = plt.subplots(nrows=data_model.EVENT_LEN_STANDARD // data_model.MAX_LEN_PLOT, ncols=1,
                                         figsize=(19.20, 10.80))
                 plt.subplots_adjust(
@@ -446,8 +475,8 @@ def beat_classification(model,
                 else:
                     try:
                         indx = np.flatnonzero((beats[0] - total_peak) < MIN_RR_INTERVAL * fs_origin)[0]
-                        total_label = np.concatenate((total_label[ :indx ], symbols), axis=0)
-                        total_peak = np.concatenate((total_peak[ :indx ], beats), axis=0)
+                        total_label = np.concatenate((total_label[:indx], symbols), axis=0)
+                        total_peak = np.concatenate((total_peak[:indx], beats), axis=0)
                     except:
                         total_label = np.concatenate((total_label, symbols), axis=0)
                         total_peak = np.concatenate((total_peak, beats), axis=0)
@@ -459,7 +488,10 @@ def beat_classification(model,
 
         except Exception as e:
             print("process_sample {}: {}".format(file_name, e))
-            break
+            pass
+
+    if len(total_peak) == 0:
+        return np.asarray([0], dtype=int), np.asarray([1]), fs_origin
 
     return np.asarray(total_peak, dtype=int), np.asarray(total_label), fs_origin
 
@@ -566,7 +598,7 @@ def beat_rhythm_classification(beat_model,
             _samp_from = (samp_from * sampling_rate) // fs_origin
             _samp_to = (samp_to * sampling_rate) // fs_origin
 
-            if data_model.MODE == 0: # New mode
+            if data_model.MODE == 0:  # New mode
                 buf_frame = []
                 for fr in data_model.OFFSET_FRAME_BEAT:
                     if len(buf_frame) == 0:
@@ -671,7 +703,7 @@ def beat_rhythm_classification(beat_model,
                         amps = np.asarray(amps)
 
                         beats, symbols, amps = beat_select(beats, symbols, amps, buf_bwr_ecg, sampling_rate)
-            else: # Old mode
+            else:  # Old mode
                 frame = buf_ecg[data_index]
                 buf_ecg1 = np.concatenate((buf_ecg[3:], np.zeros(3)))
                 frame2 = buf_ecg1[data_index]
@@ -1012,6 +1044,308 @@ def beat_rhythm_classification(beat_model,
     return total_beat, total_symbol, total_sample, total_rhythm, fs_origin
 
 
+def beat_classification(beat_model,
+                        file_name,
+                        channel_ecg,
+                        beat_datastore,
+                        overlap,
+                        img_directory=None):
+    """
+
+    """
+    header = wf.rdheader(file_name)
+    fs_origin = header.fs
+    samp_to = 0
+    samp_from = 0
+    total_beat = []
+    total_symbol = []
+
+    total_sample = []
+    total_rhythm = []
+    event_len = (data_model.EVENT_LEN_STANDARD * fs_origin)
+
+    sampling_rate = beat_datastore['sampling_rate']
+    beat_class = beat_datastore["beat_class"]
+    beat_num_block = beat_datastore["num_block"]
+    beat_feature_len = beat_datastore["feature_len"]
+    beat_ebwr = beat_datastore["bwr"]
+    beat_enorm = beat_datastore["norm"]
+    if "BAND_PASS_FILTER" in beat_datastore.keys():
+        beat_filter = beat_datastore["BAND_PASS_FILTER"]
+        beat_clip = beat_datastore["CLIP_RANGE"]
+    else:
+        beat_filter = [1.0, 30.0]
+        beat_clip = None
+
+    beat_inv = {i: k for i, k in enumerate(beat_class.keys())}
+    beat_ind = {k: i for i, k in enumerate(beat_class.keys())}
+
+    while samp_to <= header.sig_len:
+        try:
+            if header.sig_len - samp_from <= 0:
+                break
+
+            # region Process
+            samp_len = min(event_len, (header.sig_len - samp_from))
+            samp_to = samp_from + samp_len
+            record = wf.rdsamp(file_name, sampfrom=samp_from, sampto=samp_to, channels=[channel_ecg])
+            # Avoid cases where the value is NaN
+            buf_record = np.nan_to_num(record[0][:, 0])
+            fs_origin = record[1].get('fs')
+
+            if fs_origin != sampling_rate:
+                buf_ecg_org, _ = resample_sig(buf_record, fs_origin, sampling_rate)
+            else:
+                buf_ecg_org = buf_record.copy()
+
+            len_of_standard = int(data_model.EVENT_LEN_STANDARD * sampling_rate)
+
+            len_of_buf = len(buf_ecg_org)
+            if len_of_buf < len_of_standard:
+                buf_ecg_org = np.concatenate((buf_ecg_org, np.full(len_of_standard - len_of_buf, buf_ecg_org[-1])))
+
+            # endregion
+
+            # region BEAT
+            buf_ecg = butter_bandpass_filter(buf_ecg_org,
+                                             beat_filter[0],
+                                             beat_filter[1],
+                                             sampling_rate)
+            if beat_clip is not None:
+                buf_ecg = np.clip(buf_ecg,
+                                  beat_clip[0],
+                                  beat_clip[1])
+
+            buf_bwr_ecg = bwr(buf_ecg_org, sampling_rate)
+            if beat_ebwr:
+                buf_ecg = bwr(buf_ecg_org, sampling_rate)
+
+            if beat_enorm:
+                buf_ecg = norm(buf_ecg, int(data_model.NUM_NORMALIZATION * sampling_rate))
+
+            data_len = len(buf_ecg)
+            beat_label_len = beat_feature_len // beat_num_block
+            data_index = np.arange(beat_feature_len)[None, :] + \
+                         np.arange(0, data_len, beat_feature_len)[:, None]
+
+            _samp_from = (samp_from * sampling_rate) // fs_origin
+            _samp_to = (samp_to * sampling_rate) // fs_origin
+
+            if data_model.MODE == 0:  # New mode
+                buf_frame = []
+                for fr in data_model.OFFSET_FRAME_BEAT:
+                    if len(buf_frame) == 0:
+                        buf_frame = np.concatenate((buf_ecg[fr:], np.full(fr, 0)))[data_index]
+                    else:
+                        buf_frame = np.concatenate(
+                            (buf_frame, np.concatenate((buf_ecg[fr:], np.full(fr, 0)))[data_index]))
+
+                buf_frame = np.asarray(buf_frame)
+                group_beat_prob = beat_model.predict(buf_frame)
+                group_beat_candidate = np.argmax(group_beat_prob, axis=-1)
+                group_beat_candidate = group_beat_candidate.reshape((-1, len(data_index), beat_num_block))
+                label_index = np.arange(beat_label_len)[None, :] + \
+                              np.arange(0, beat_feature_len, beat_label_len)[:, None]
+
+                group_bwr_frame = buf_bwr_ecg[data_index]
+                beats = []
+                symbols = []
+                amps = []
+
+                for beat_candidate in group_beat_candidate:
+                    # beat_candidate = np.asarray(beat_candidate).reshape((-1, beat_num_block))
+                    for group_beat, group_bwr_buff, group_offset in zip(beat_candidate,
+                                                                        group_bwr_frame,
+                                                                        data_index):
+                        _group_offset = group_offset[label_index]
+                        _index = np.where(abs(np.diff(group_beat)) > 0)[0] + 1
+                        _group_beat = np.split(group_beat, _index)
+                        _group_offset = np.split(_group_offset, _index)
+                        for gbeat, goffset in zip(_group_beat, _group_offset):
+                            if np.max(gbeat) > beat_ind["NOTABEAT"]:
+                                goffset = np.asarray(goffset).flatten()
+                                index_ext = goffset.copy()
+                                if (goffset[0] - beat_label_len) >= 0:
+                                    index_ext = np.concatenate((np.arange((goffset[0] - beat_label_len),
+                                                                          goffset[0]), index_ext))
+
+                                if (goffset[-1] + beat_label_len) < beat_feature_len:
+                                    index_ext = np.concatenate((index_ext,
+                                                                np.arange(goffset[-1], (goffset[-1] + beat_label_len))))
+
+                                gbuff = np.asarray(group_bwr_buff[index_ext]).flatten()
+                                flip_g = gbuff * -1.0
+                                peaks_up = np.argmax(gbuff)
+                                peaks_down = np.argmax(flip_g)
+                                if abs(gbuff[peaks_up]) > abs(flip_g[peaks_down]):
+                                    ma = abs(gbuff[peaks_up])
+                                    peaks = peaks_up
+                                else:
+                                    ma = abs(flip_g[peaks_down])
+                                    peaks = peaks_down
+
+                                amps.append(ma)
+                                beats.append(peaks + index_ext[0])
+                                qr_count = Counter(gbeat)
+                                qr = qr_count.most_common(1)[0][0]
+                                symbols.append(beat_inv[qr])
+
+                if len(beats) > 0:
+                    symbols = [x for _, x in sorted(zip(beats, symbols))]
+                    amps = [x for _, x in sorted(zip(beats, amps))]
+                    beats = sorted(beats)
+
+                    beats = np.asarray(beats, dtype=int)
+                    symbols = np.asarray(symbols)
+                    amps = np.asarray(amps)
+                    index_artifact = symbols == 'ARTIFACT'
+                    sample_artifact = []
+                    if np.count_nonzero(index_artifact) > 0:
+                        sample_artifact = np.zeros(data_len, dtype=int)
+                        sample_artifact[beats[index_artifact]] = 1
+                        label_index_artifact = np.arange(sampling_rate)[None, :] + \
+                                               np.arange(0, data_len, sampling_rate)[:, None]
+                        sample_artifact = sample_artifact[label_index_artifact]
+                        sample_artifact = np.asarray([np.max(lbl) for lbl in sample_artifact], dtype=int)
+
+                        index_del = np.where(symbols == 'ARTIFACT')[0]
+                        symbols = np.delete(symbols, index_del)
+                        beats = np.delete(beats, index_del)
+                        amps = np.delete(amps, index_del)
+
+                    if len(beats) > 0:
+                        min_rr = data_model.MIN_RR_INTERVAL * sampling_rate
+                        group_beats, group_symbols, group_amps, group_len = beat_cluster(beats,
+                                                                                         symbols,
+                                                                                         amps,
+                                                                                         min_rr)
+                        beats = []
+                        symbols = []
+                        amps = []
+                        for _beat, _symbol, _amp in zip(group_beats, group_symbols, group_amps):
+                            qr_count = Counter(_symbol)
+                            qr = qr_count.most_common(1)[0][0]
+                            symbols.append(qr)
+
+                            p = np.argmax(_amp)
+                            amps.append(max(_amp))
+                            beats.append(_beat[p])
+
+                        beats = np.asarray(beats)
+                        symbols = np.asarray(symbols)
+                        amps = np.asarray(amps)
+
+                        beats, symbols, amps = beat_select(beats, symbols, amps, buf_bwr_ecg, sampling_rate)
+            else:  # Old mode
+                frame = buf_ecg[data_index]
+                buf_ecg1 = np.concatenate((buf_ecg[3:], np.zeros(3)))
+                frame2 = buf_ecg1[data_index]
+                buf_ecg3 = np.concatenate((buf_ecg[5:], np.zeros(5)))
+                frame3 = buf_ecg3[data_index]
+                lenOfframe = len(frame)
+                frame = np.concatenate((frame, frame2, frame3))
+                group_beat_prob = beat_model.predict(frame)
+                group_beat_candidate = np.argmax(group_beat_prob, axis=-1)
+                beat_candidate = group_beat_candidate[:lenOfframe, :]
+                beat_candidate2 = group_beat_candidate[lenOfframe: lenOfframe * 2, :]
+                beat_candidate3 = group_beat_candidate[lenOfframe * 2:, :]
+
+                label_index = np.arange(beat_label_len)[None, :] + \
+                              np.arange(0, beat_feature_len, beat_label_len)[:, None]
+                beats = []
+                symbols = []
+                amps = []
+                for beats_group, beats_group2, beats_group3, buf_group, index_group in zip(beat_candidate, beat_candidate2,
+                                                                                           beat_candidate3, frame,
+                                                                                           data_index):
+                    buf = buf_group[label_index]
+                    idx = index_group[label_index]
+                    for qr0, qr2, qr3, gr, id in zip(beats_group, beats_group2, beats_group3, buf, idx):
+                        # qr_count = Counter([qr0, qr2, qr3])
+                        # qr = qr_count.most_common(1)[0][0]
+                        qr = max([qr0, qr2, qr3])
+                        if beat_ind["NOTABEAT"] < qr:
+                            flip_g = gr * -1.0
+                            peaks = np.argmax(gr)
+                            flip_peaks = np.argmax(flip_g)
+                            peaks = np.concatenate(([peaks], [flip_peaks]))
+                            ma = np.abs(gr[peaks] - np.mean(gr))
+                            mb = np.argmax(ma)
+                            amps.append(max(ma))
+                            beats.append(peaks[mb] + id[0])
+                            symbols.append(beat_inv[qr])
+
+                beats = np.asarray(beats)
+                symbols = np.asarray(symbols)
+                index_artifact = symbols == 'ARTIFACT'
+                sample_artifact = []
+                if np.count_nonzero(index_artifact) > 0:
+                    sample_artifact = np.zeros(data_len, dtype=int)
+                    sample_artifact[beats[index_artifact]] = 1
+                    label_index_artifact = np.arange(sampling_rate)[None, :] + \
+                                           np.arange(0, data_len, sampling_rate)[:, None]
+                    sample_artifact = sample_artifact[label_index_artifact]
+                    sample_artifact = np.asarray([np.max(lbl) for lbl in sample_artifact], dtype=int)
+
+                    index_del = np.where(symbols == 'ARTIFACT')[0]
+                    symbols = np.delete(symbols, index_del)
+                    beats = np.delete(beats, index_del)
+
+                if len(beats) > 0:
+                    symbols = np.asarray([x for _, x in sorted(zip(beats, symbols))])
+                    amps = np.asarray([x for _, x in sorted(zip(beats, amps))])
+                    beats = np.sort(beats)
+
+                    group_index = np.where(abs(np.diff(beats)) > (data_model.MIN_RR_INTERVAL * sampling_rate))[0] + 1
+                    group_beats = np.split(beats, group_index)
+                    group_symbols = np.split(symbols, group_index)
+                    group_amps = np.split(amps, group_index)
+                    beats = []
+                    symbols = []
+                    amps = []
+                    for _beat, _symbol, _amp in zip(group_beats, group_symbols, group_amps):
+                        # occurence_count = Counter(_symbol)
+                        # sym = occurence_count.most_common(1)[0][0]
+                        iamp = np.argmax(_amp)
+                        symbols.append(_symbol[iamp])
+                        beats.append(_beat[iamp])
+                        amps.append(np.max(_amp))
+
+                    beats = np.asarray(beats)
+                    symbols = np.asarray(symbols)
+                    amps = np.asarray(amps)
+
+            # endregion BEAT
+
+            sample = (sample * fs_origin) // sampling_rate
+            sample += samp_from
+
+            rhythm_candidate_pred_draw = np.zeros(data_len)
+            rhythm_candidate_pred_draw = rhythm_candidate_pred_draw[label_index]
+
+            rhythm_candidate_pred_draw = rhythm_candidate_pred_draw.flatten()
+
+            if len(beats) > 0:
+                beats = (beats * fs_origin) // sampling_rate
+                beats += samp_from
+                if len(total_symbol) == 0:
+                    total_symbol = symbols
+                    total_beat = beats
+                else:
+                    total_symbol = np.concatenate((total_symbol, symbols), axis=0)
+                    total_beat = np.concatenate((total_beat, beats), axis=0)
+
+            samp_from = samp_to
+
+        except Exception as e:
+            print("process_sample {}: {}".format(file_name, e))
+            break
+
+    total_beat = np.asarray(total_beat, dtype=int)
+    total_symbol = np.asarray(total_symbol)
+    return total_beat, total_symbol, fs_origin
+
+
 def process_beat_classification(process_index,
                                 use_gpu_index,
                                 file_list,
@@ -1064,11 +1398,11 @@ def process_beat_classification(process_index,
 
     if 'beat' in func:
         tmp = checkpoint_dir.split('/')
-        for i in tmp :
-            try :
+        for i in tmp:
+            try:
                 day_export = datetime.datetime.strptime(i, '%y%m%d')
                 break
-            except :
+            except:
                 continue
 
         # day_export = checkpoint_dir.split('/')[6]
@@ -1096,8 +1430,13 @@ def process_beat_classification(process_index,
                                               num_loop,
                                               0.5,
                                               False)
+            beat_model.summary()
+            import glob
+            checkpoint_dir = glob.glob(checkpoint_dir + '/*.h5')[0]
+            # beat_model = keras.models.load_model(ckt)
 
-        beat_model.load_weights(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
+        # beat_model.load_weights(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
+        beat_model.load_weights(checkpoint_dir)
     else:
         return ""
 
@@ -1111,7 +1450,7 @@ def process_beat_classification(process_index,
         else:
             channel_ecg = channel
 
-        # if basename(file_name) != "223":
+        # if basename(file_name) != "100":
         #     continue
 
         total_peak, total_symbol, fs_origin = beat_classification(beat_model,
@@ -1417,5 +1756,126 @@ def process_beat_rhythm_classification(process_index,
             lst_file_name.append(basename(file_name))
             lst_symbol_true += ref_symbol
             lst_symbol_pred += compare_symbol
+
+    return log_lines, lst_file_name, lst_symbol_true, lst_symbol_pred
+
+
+def process_beat_classification_2(process_index,
+                                use_gpu_index,
+                                file_list,
+                                beat_datastore,
+                                beat_checkpoint,
+                                beat_ext_tech,
+                                beat_ext_ai,
+                                write_mit_annotation,
+                                memory=2048):
+    """
+
+    """
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(use_gpu_index)
+
+    import tensorflow as tf
+
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    tf.get_logger().setLevel(tf.compat.v1.logging.ERROR)
+    tf.autograph.set_verbosity(1)
+
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        tf.config.experimental.set_virtual_device_configuration(
+            physical_devices[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memory)]
+        )
+    else:
+        my_devices = tf.config.experimental.list_physical_devices(device_type='CPU')
+        tf.config.experimental.set_visible_devices(devices=my_devices, device_type='CPU')
+
+    # region BEAT
+    beat_feature_len = beat_datastore["feature_len"]
+    beat_class = beat_datastore["beat_class"]
+    beat_model_name = beat_checkpoint.split('/')[-2]
+    _model_path = beat_model_name.split('_')
+    func = ""
+    m = 0
+    for m in range(len(_model_path)):
+        if _model_path[m].isnumeric():
+            break
+        else:
+            func += _model_path[m] + "_"
+
+    func = func[:-1]
+
+    if 'beat' in func:
+        day_export = beat_checkpoint.split('/')[-6]
+        day_export = datetime.datetime.strptime(day_export, '%y%m%d')
+
+        num_loop = int(_model_path[m])
+        num_filters = np.asarray([int(i) for i in _model_path[m + 1].split('.')], dtype=int)
+        try:
+            from_logits = bool(int(_model_path[m + 2]))
+        except:
+            from_logits = False
+
+        if day_export < datetime.datetime(2021, 12, 1):
+            beat_model = getattr(model_old, func)(beat_feature_len,
+                                                  len(beat_class),
+                                                  from_logits,
+                                                  num_filters,
+                                                  num_loop,
+                                                  0.5,
+                                                  False)
+        else:
+            beat_model = getattr(model, func)(beat_feature_len,
+                                              len(beat_class),
+                                              from_logits,
+                                              num_filters,
+                                              num_loop,
+                                              0.5,
+                                              False)
+            beat_model.summary()
+            import glob
+            checkpoint_dir = glob.glob(beat_checkpoint + '/*.h5')[0]
+
+        beat_model.load_weights(checkpoint_dir)
+        # beat_model.load_weights(tf.train.latest_checkpoint(beat_checkpoint)).expect_partial()
+    else:
+        return None
+
+    # endregion BEAT
+
+    log_lines = []
+    lst_file_name = []
+    lst_symbol_true = []
+    lst_symbol_pred = []
+    for file_name in file_list:
+        event_channel = 0
+        start = time.perf_counter()
+        total_peak, total_symbol, fs_origin = beat_classification_2(beat_model,
+                                                                    file_name,
+                                                                    event_channel,
+                                                                    beat_datastore
+                                                                    )
+        print("No. beats of file_name: {}".format(len(total_peak)))
+        if len(total_peak) == 0:
+            total_peak = [0]
+            total_symbol = ['N']
+
+        if 'export_noise' in file_name:
+            total_symbol = ['Q'] * len(total_peak)
+
+        str_log = '{} with {} beats take {} seconds'.format(
+            basename(dirname(file_name)) + '/' + basename(file_name),
+            len(total_peak),
+            time.perf_counter() - start)
+
+        if write_mit_annotation:
+            annotation2 = wf.Annotation(record_name=basename(file_name),
+                                        extension=beat_ext_ai,
+                                        sample=np.asarray(total_peak),
+                                        symbol=np.asarray(total_symbol),
+                                        fs=fs_origin)
+            annotation2.wrann(write_fs=True, write_dir=dirname(file_name))
 
     return log_lines, lst_file_name, lst_symbol_true, lst_symbol_pred

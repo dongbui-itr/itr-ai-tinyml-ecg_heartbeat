@@ -17,16 +17,14 @@ import copy
 def train():
     MAX_EPOCH = 50
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
-    # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
-    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
 
 
     # sl.split_data(MEDIA_PATH)
@@ -50,18 +48,18 @@ def train():
     # percent_train
 
     DATA = [
-        '128_05_20_0_0_0_5_0_0.99',
+        '128_05_20_0_0_0_4_0_0.99',
     ]
     BATCH_SIZE_TRAINING = [
-        128,
+        64,
     ]
 
     MODEL = [
         # "beat_concat_seq_add_more_other_7_16.32.48.64_0_0.5",
         # "beat_concat_seq_add_more_other_11_16.32.48.64_0_0.5",
-        "beat_concat_seq_add_more2_128Hz_3_8.16.32.48_0_0.5",
+        # "beat_concat_seq_add_more2_128Hz_3_8.16.32.48_0_0.5",
         # "beat_concat_seq_add_depthwise_250Hz_7_16.32.48_0_0.5",
-        # "beat_depthwise2_128Hz_7_32.32.48_0_0.5",
+        "beat_depthwise2_128Hz_4_8.16.32_0_0.5",
         # "beat_seq_mobilenet_v2_1d_0_0.0.0_0_0.5",
         # "beat_seq_mobilenet_v2keras_1d_0_0.0.0_0_0.5",
     ]
@@ -217,7 +215,8 @@ def train():
                              output_ec57_directory=output_ec57_directory,
                              physionet_directory=PATH_DATA_TRAINING,
                              overlap=5,
-                             num_of_process=8)
+                             num_of_process=8,)
+                             # dir_image=output_ec57_directory)
 
                     # endregion
                     # region check

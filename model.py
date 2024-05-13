@@ -1,4 +1,5 @@
 import tensorflow as tf
+import keras
 
 
 def conv1d_net(x,
@@ -14,25 +15,34 @@ def conv1d_net(x,
 
     """
     if bn:
-        x = tf.keras.layers.BatchNormalization(axis=-1, name=name + '_bn')(x)
+        x = keras.layers.BatchNormalization(axis=-1, name=name + '_bn')(x)
 
     if act:
-        x = tf.keras.layers.ReLU(name=name + '_act')(x)
+        x = keras.layers.ReLU(name=name + '_act')(x)
 
     if rate < 1.0:
-        x = tf.keras.layers.Dropout(rate=rate, name=name + '_drop')(x)
+        x = keras.layers.Dropout(rate=rate, name=name + '_drop')(x)
 
-    x = tf.keras.layers.Conv1D(filters=num_filters,
-                               kernel_size=kernel_size,
-                               strides=strides,
-                               padding=pad,
-                               name=name + '_conv1d')(x)
+    try:
+        x = keras.layers.Conv1D(filters=int(num_filters),
+                                   kernel_size=kernel_size,
+                                   strides=strides,
+                                   padding=pad,
+                                   name=name + '_conv1d')(x)
+        # print("Info 3: {}_{}_{}_{}_{}".format(num_filters,
+        #                                       kernel_size,
+        #                                       strides,
+        #                                       pad,
+        #                                       name + '_conv1d'))
+    except Exception as err:
+        print("Info 2: {}_{}_{}_{}_{}".format(num_filters,
+                                   kernel_size,
+                                   strides,
+                                   pad,
+                                   name + '_conv1d'))
+        print(err)
 
     return x
-
-
-
-
 
 
 def block1d_loop(xx, ff, stage, step):
@@ -67,7 +77,7 @@ def block1d_loop(xx, ff, stage, step):
                     rate=0.5,
                     name="resnet11b_{}_{}".format(step, stage))
 
-    xx = tf.keras.layers.Add(name="skip11_{}_{}".format(step, stage))([xx, xx_skip])
+    xx = keras.layers.Add(name="skip11_{}_{}".format(step, stage))([xx, xx_skip])
     return xx
 
 
@@ -96,8 +106,8 @@ def selection_net(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len * 3,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 3))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len * 3,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 3))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=16,
@@ -144,17 +154,17 @@ def selection_net(feature_len,
                        rate=rate,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(x)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(x)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def rhythm_net(feature_len,
@@ -182,8 +192,8 @@ def rhythm_net(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=16,
@@ -230,17 +240,17 @@ def rhythm_net(feature_len,
                        rate=rate,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(x)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(x)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def rhythm_seq(feature_len,
@@ -268,8 +278,8 @@ def rhythm_seq(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=16,
@@ -316,22 +326,22 @@ def rhythm_seq(feature_len,
                        rate=rate,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def rhythm_seq_add(feature_len,
@@ -359,8 +369,8 @@ def rhythm_seq_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=16,
@@ -407,25 +417,25 @@ def rhythm_seq_add(feature_len,
                        rate=rate,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_net(feature_len,
@@ -453,8 +463,8 @@ def beat_net(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -501,17 +511,17 @@ def beat_net(feature_len,
                        rate=rate,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(x)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(x)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_seq(feature_len,
@@ -539,8 +549,8 @@ def beat_seq(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -587,22 +597,22 @@ def beat_seq(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_seq_add(feature_len,
@@ -630,8 +640,8 @@ def beat_seq_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -678,26 +688,26 @@ def beat_seq_add(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq(feature_len,
@@ -725,8 +735,8 @@ def beat_concat_seq(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -773,7 +783,7 @@ def beat_concat_seq(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -793,17 +803,17 @@ def beat_concat_seq(feature_len,
 
         x = tf.concat((x, xx, yy, xy), axis=2)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_other(feature_len,
@@ -831,8 +841,8 @@ def beat_concat_seq_other(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -879,7 +889,7 @@ def beat_concat_seq_other(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -895,17 +905,17 @@ def beat_concat_seq_other(feature_len,
 
         x = tf.concat((xx, x, yy), axis=2)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_other2(feature_len,
@@ -933,8 +943,8 @@ def beat_concat_seq_other2(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -981,7 +991,7 @@ def beat_concat_seq_other2(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -995,29 +1005,29 @@ def beat_concat_seq_other2(feature_len,
         zz = tf.zeros_like(x[:, 0:1, :])
         yy = tf.concat((yy, zz), axis=1)
 
-    lstm_layer_x = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer_x = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_x)
+    lstm_layer_x = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer_x = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_x)
 
-    lstm_layer_xx = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(xx)
-    lstm_layer_xx = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_xx)
+    lstm_layer_xx = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(xx)
+    lstm_layer_xx = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_xx)
 
-    lstm_layer_yy = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(yy)
-    lstm_layer_yy = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_yy)
+    lstm_layer_yy = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(yy)
+    lstm_layer_yy = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_yy)
 
     lstm_layer = tf.concat((lstm_layer_xx, lstm_layer_x, lstm_layer_yy), axis=2)
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add(feature_len,
@@ -1045,8 +1055,8 @@ def beat_concat_seq_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1093,7 +1103,7 @@ def beat_concat_seq_add(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1113,20 +1123,20 @@ def beat_concat_seq_add(feature_len,
 
         x = tf.concat((x, xx, yy, xy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add_other(feature_len,
@@ -1154,8 +1164,8 @@ def beat_concat_seq_add_other(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1202,7 +1212,7 @@ def beat_concat_seq_add_other(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1218,20 +1228,20 @@ def beat_concat_seq_add_other(feature_len,
 
         x = tf.concat((xx, x, yy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add_other1(feature_len,
@@ -1259,8 +1269,8 @@ def beat_concat_seq_add_other1(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1307,7 +1317,7 @@ def beat_concat_seq_add_other1(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1331,20 +1341,20 @@ def beat_concat_seq_add_other1(feature_len,
 
         x = tf.concat((aa, xx, x, yy, bb), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add_other2(feature_len,
@@ -1372,8 +1382,8 @@ def beat_concat_seq_add_other2(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1420,7 +1430,7 @@ def beat_concat_seq_add_other2(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1434,29 +1444,29 @@ def beat_concat_seq_add_other2(feature_len,
         zz = tf.zeros_like(x[:, 0:1, :])
         yy = tf.concat((yy, zz), axis=1)
 
-    lstm_layer_x = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer_x = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_x)
+    lstm_layer_x = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer_x = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_x)
 
-    lstm_layer_xx = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(xx)
-    lstm_layer_xx = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_xx)
+    lstm_layer_xx = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(xx)
+    lstm_layer_xx = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_xx)
 
-    lstm_layer_yy = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(yy)
-    lstm_layer_yy = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_yy)
+    lstm_layer_yy = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(yy)
+    lstm_layer_yy = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer_yy)
 
-    lstm_layer = tf.keras.layers.Add()([lstm_layer_xx, lstm_layer_x, lstm_layer_yy])
+    lstm_layer = keras.layers.Add()([lstm_layer_xx, lstm_layer_x, lstm_layer_yy])
 
-    logits_layer = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Dense(num_of_class)(lstm_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seqn_add(feature_len,
@@ -1484,8 +1494,8 @@ def beat_concat_seqn_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1532,7 +1542,7 @@ def beat_concat_seqn_add(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1552,20 +1562,20 @@ def beat_concat_seqn_add(feature_len,
 
         x = tf.concat((x, xx, yy, xy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq2_add(feature_len,
@@ -1593,8 +1603,8 @@ def beat_concat_seq2_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1641,7 +1651,7 @@ def beat_concat_seq2_add(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1661,23 +1671,23 @@ def beat_concat_seq2_add(feature_len,
 
         x = tf.concat((x, xx, yy, xy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq3_add(feature_len,
@@ -1705,8 +1715,8 @@ def beat_concat_seq3_add(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1753,7 +1763,7 @@ def beat_concat_seq3_add(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1773,25 +1783,25 @@ def beat_concat_seq3_add(feature_len,
 
         x = tf.concat((x, xx, yy, xy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
 
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add_more_other(feature_len,
@@ -1819,8 +1829,8 @@ def beat_concat_seq_add_more_other(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1867,7 +1877,7 @@ def beat_concat_seq_add_more_other(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -1891,20 +1901,20 @@ def beat_concat_seq_add_more_other(feature_len,
 
         x = tf.concat((bxx, xx, x, yy, ayy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_seq_add_more2_other(feature_len,
@@ -1932,8 +1942,8 @@ def beat_concat_seq_add_more2_other(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
@@ -1980,7 +1990,7 @@ def beat_concat_seq_add_more2_other(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
@@ -2012,27 +2022,27 @@ def beat_concat_seq_add_more2_other(feature_len,
 
         x = tf.concat((bbxx, bxx, xx, x, yy, ayy, aayy), axis=2)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
-def beat_concat_seq_add_more2_250Hz(feature_len,
+def beat_concat_seq_add_more2_128Hz(feature_len,
                                     num_of_class=2,
                                     from_logits=False,
                                     filters_rhythm_net=None,
-                                    num_loop=7,
+                                    num_loop=3,
                                     rate=0.5,
                                     name='beat_concat_seq_add_more2_other'):
     """
@@ -2043,7 +2053,7 @@ def beat_concat_seq_add_more2_250Hz(feature_len,
                               (16, 16),
                               (16, 32),
                               (32, 48),
-                              # (48, 64)
+                              (48, 32)
                               ]
     else:
         tmp = []
@@ -2055,13 +2065,13 @@ def beat_concat_seq_add_more2_250Hz(feature_len,
 
         filters_rhythm_net = tmp.copy()
 
-    input_layer = tf.keras.layers.Input(shape=(feature_len,))
-    resnet_input_layer = tf.keras.layers.Reshape((feature_len, 1))(input_layer)
+    input_layer = keras.layers.Input(shape=(feature_len,))
+    resnet_input_layer = keras.layers.Reshape((feature_len, 1))(input_layer)
     # Convolution(stride=2)
     x = conv1d_net(x=resnet_input_layer,
                    num_filters=filters_rhythm_net[0][0],
                    kernel_size=4,
-                   strides=3,
+                   strides=2,
                    pad='SAME',
                    act=False,
                    bn=False,
@@ -2103,47 +2113,47 @@ def beat_concat_seq_add_more2_250Hz(feature_len,
                        rate=0.5,
                        name="resnet11" + name)
 
-        x = tf.keras.layers.Add(name="add_" + name)([x, x_skip])
+        x = keras.layers.Add(name="add_" + name)([x, x_skip])
         ffs = [(f2, f2) for _ in range(num_loop)]
         for sl, ffl in enumerate(ffs):
             x = block1d_loop(x, ffl, name, sl)
 
-    with tf.compat.v1.variable_scope('collected') as scope:
-        bbxx = x[:, :-5, :]
-        bxx = x[:, 2:-3, :]
-        xx = x[:, 5:, :]
+    # with tf.compat.v1.variable_scope('collected') as scope:
+    #     bbxx = x[:, :-5, :]
+    #     bxx = x[:, 2:-3, :]
+    #     xx = x[:, 5:, :]
+    #
+    #     x = tf.concat((bbxx, bxx, xx), axis=2)
+    #
+    #     # yy = x[:, 1:, :]
+    #     # zz = tf.zeros_like(x[:, 0:1, :])
+    #     # yy = tf.concat((yy, zz), axis=1)
+    #     #
+    #     # ayy = x[:, 2:, :]
+    #     # azz = tf.zeros_like(x[:, 0:2, :])
+    #     # ayy = tf.concat((ayy, azz), axis=1)
+    #     #
+    #     # aayy = x[:, 3:, :]
+    #     # aazz = tf.zeros_like(x[:, 0:3, :])
+    #     # aayy = tf.concat((aayy, aazz), axis=1)
+    #     #
+    #     # x = tf.concat((bbxx, bxx, xx, x, yy, ayy, aayy), axis=2)
 
-        x = tf.concat((bbxx, bxx, xx), axis=2)
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    lstm_layer = keras.layers.Bidirectional(
+        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-        # yy = x[:, 1:, :]
-        # zz = tf.zeros_like(x[:, 0:1, :])
-        # yy = tf.concat((yy, zz), axis=1)
-        #
-        # ayy = x[:, 2:, :]
-        # azz = tf.zeros_like(x[:, 0:2, :])
-        # ayy = tf.concat((ayy, azz), axis=1)
-        #
-        # aayy = x[:, 3:, :]
-        # aazz = tf.zeros_like(x[:, 0:3, :])
-        # aayy = tf.concat((aayy, aazz), axis=1)
-        #
-        # x = tf.concat((bbxx, bxx, xx, x, yy, ayy, aayy), axis=2)
+    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer1 = tf.keras.layers.Dense(num_of_class)(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-
-    logits_layer2 = tf.keras.layers.Dense(num_of_class)(lstm_layer)
-
-    logits_layer = tf.keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = tf.keras.layers.Softmax(axis=-1)(logits_layer)
+    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
 
     if not from_logits:
-        return tf.keras.Model(input_layer, softmax_layer, name=name)
+        return keras.Model(input_layer, softmax_layer, name=name)
     else:
-        return tf.keras.Model(input_layer, logits_layer, name=name)
+        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_seq_mobilenet_v2_1d(feature_len,
@@ -2229,14 +2239,21 @@ def beat_depthwise2_128Hz(feature_len,
                                     name='beat_concat_seq_add_more2_other')
 
 def test_model():
-    feature_len = 2500
-    num_of_class = 5
+    feature_len = 640
+    num_of_class = 2
     from_logits = False,
     filters_rhythm_net = None,
     num_loop = 7
     rate = 0.5
-    model = beat_concat_seq_add_more2_250Hz(feature_len=feature_len,
-                                            num_of_class=num_of_class)
+    # model = beat_concat_seq_add_more2_128Hz(feature_len=feature_len,
+    #                               num_of_class=num_of_class)
+    model = beat_concat_seq_add_more2_128Hz(feature_len=640,
+                                    num_of_class=2,
+                                    from_logits=False,
+                                    filters_rhythm_net=[8, 16, 32, 48],
+                                    num_loop=3,
+                                    rate=0.5,
+                                    name='beat_concat_seq_add_more2_other')
 
     model.summary()
 

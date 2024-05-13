@@ -22,12 +22,15 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
 
     # types = ['S', 'V', 'R', 'N']
     types = ['N', 'S', 'V', 'IVCD', 'IVCD-SE', 'IVCD-VE', 'TACHY', 'BRADY', 'noise']
+    # types = ['BRADY', 'noise']
     # types = ['TACHY', 'BRADY']
 
     statictis_type = {}
     for _type in types:
         if 'IVCD' in _type:
             type = 'R'
+        elif 'noise' in _type:
+            type = 'Q'
         else:
             type = _type
 
@@ -36,7 +39,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
 
         data_path = os.path.join(data_dir, 'export_{}'.format(_type.replace('IVCD', 'R').replace('-', '')))
         if _type == 'noise':
-            studies_path = glob(data_path + '/*/*/*')
+            studies_path = glob(data_path + '/*/*')
         else:
             studies_path = glob(data_path + '/*')
 
@@ -46,6 +49,9 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
             if 'IVCD' in i:
                 i = 'R'
                 # continue
+            elif 'noise' in i:
+                i = 'Q'
+
             if '-' in i:
                 continue
 
@@ -57,6 +63,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
             for i in types:
                 if 'IVCD' in i:
                     i = 'R'
+                elif 'noise' in i:
+                    i = 'Q'
 
                 if '-' in i:
                     continue
@@ -71,20 +79,25 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
                 for file in files:
                     ann = wf.rdann(file, 'atr')
                     symbol = ann.symbol
+                    if 'noise' in file:
+                        symbol = ['Q'] * len(symbol)
+
                     symbol_statictis = Counter(symbol)
                     for key in symbol_statictis.keys():
-                        if 'Q' in key:
-                            statictis_type[type][study_id]['total_{}'.format('N')] += symbol_statictis[key]
-                            statictis_type[type]['total_{}'.format('N')] += symbol_statictis[key]
-                        else:
-                            statictis_type[type][study_id]['total_{}'.format(key)] += symbol_statictis[key]
-                            statictis_type[type]['total_{}'.format(key)] += symbol_statictis[key]
+                        if 'noise' in file:
+                            key = 'Q'
+                        # if 'Q' in key:
+                        #     statictis_type[type][study_id]['total_{}'.format('N')] += symbol_statictis[key]
+                        #     statictis_type[type]['total_{}'.format('N')] += symbol_statictis[key]
+                        # else:
+                        statictis_type[type][study_id]['total_{}'.format(key)] += symbol_statictis[key]
+                        statictis_type[type]['total_{}'.format(key)] += symbol_statictis[key]
 
     total_S_study = len(statictis_type['S'])
     total_V_study = len(statictis_type['V'])
     total_R_study = len(statictis_type['R'])
-    # total_R_study = len(statictis_type['IVCD']) + len(statictis_type['IVCD-SVE']) + len(statictis_type['IVCD-VE'])
     total_N_study = len(statictis_type['N'])
+    total_Q_study = len(statictis_type['Q'])
     total_TACHY_study = len(statictis_type['TACHY'])
     total_BRADY_study = len(statictis_type['BRADY'])
 
@@ -93,6 +106,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     limit_train_V = int((total_V_study - len(types)) * ratio_train)
     limit_train_R = int((total_R_study - len(types)) * ratio_train)
     limit_train_N = int((total_N_study - len(types)) * ratio_train)
+    limit_train_NOISE = int((total_Q_study - len(types)) * ratio_train)
     limit_train_TACHY = int((total_TACHY_study - len(types)) * ratio_train)
     limit_train_BRADY = int((total_BRADY_study - len(types)) * ratio_train)
 
@@ -101,22 +115,19 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     limit_eval_V = int((total_V_study - len(types)) * ratio_eval)
     limit_eval_R = int((total_R_study - len(types)) * ratio_eval)
     limit_eval_N = int((total_N_study - len(types)) * ratio_eval)
-    limit_eval_BRADY = int((total_BRADY_study - len(types)) * ratio_eval)
-    limit_eval_TACHY = int((total_TACHY_study - len(types)) * ratio_eval)
+    limit_eval_Q = int((total_Q_study - len(types)) * ratio_eval)
 
     final_total_train_S = 0
     final_total_train_V = 0
     final_total_train_R = 0
     final_total_train_N = 0
-    final_total_train_TACHY = 0
-    final_total_train_BRADY = 0
+    final_total_train_Q = 0
 
     final_total_eval_S = 0
     final_total_eval_V = 0
     final_total_eval_R = 0
     final_total_eval_N = 0
-    final_total_eval_TACHY = 0
-    final_total_eval_BRADY = 0
+    final_total_eval_Q = 0
 
     statictis_type['Train'] = {}
     statictis_type['Eval'] = {}
@@ -124,11 +135,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     for type in types:
         if 'IVCD' in type:
             type = 'R'
+        elif 'noise' in type:
+            type = 'Q'
 
         if not type in list(statictis_type['Train'].keys()):
             statictis_type['Train'][type] = {}
             statictis_type['Eval'][type] = {}
-            statictis_type['Train'][type] = {}
 
     ### S Region ###
     times = 0
@@ -142,19 +154,14 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         V_in_S_study = 0
         R_in_S_study = 0
         N_in_S_study = 0
-        BRADY_in_S_study = 0
-        TACHY_in_S_study = 0
+        Q_in_S_study = 0
 
         for i in range(limit_train_S):
             S_in_S_study += statictis_type['S'][list_S_studies[i]]['total_S']
             V_in_S_study += statictis_type['S'][list_S_studies[i]]['total_V']
             R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_R']
-            # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD']
-            # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD-SVE']
-            # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD-VE']
             N_in_S_study += statictis_type['S'][list_S_studies[i]]['total_N']
-            # TACHY_in_S_study += statictis_type['S'][list_S_studies[i]]['total_TACHY']
-            # BRADY_in_S_study += statictis_type['S'][list_S_studies[i]]['total_BRADY']
+            Q_in_S_study += statictis_type['S'][list_S_studies[i]]['total_Q']
 
         if S_in_S_study >= statictis_type['S']['total_S'] * ratio_train:
             break
@@ -163,12 +170,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     final_total_train_V += V_in_S_study
     final_total_train_R += R_in_S_study
     final_total_train_N += N_in_S_study
+    final_total_train_Q += Q_in_S_study
     statictis_type['Train']['S']['Total_S_in_S_study'] = S_in_S_study
     statictis_type['Train']['S']['Total_V_in_S_study'] = V_in_S_study
     statictis_type['Train']['S']['Total_R_in_S_study'] = R_in_S_study
     statictis_type['Train']['S']['Total_N_in_S_study'] = N_in_S_study
-    # statictis_type['Train']['S']['Total_TACHY_in_S_study'] = TACHY_in_S_study
-    # statictis_type['Train']['S']['Total_BRADY_in_S_study'] = BRADY_in_S_study
+    statictis_type['Train']['S']['Total_Q_in_S_study'] = N_in_S_study
     statictis_type['Train']['S_study'] = list_S_studies[:limit_train_S]
 
     # times = 0
@@ -181,31 +188,26 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_S_study = 0
     R_in_S_study = 0
     N_in_S_study = 0
-    BRADY_in_S_study = 0
-    TACHY_in_S_study = 0
+    Q_in_S_study = 0
 
     for i in range(limit_eval_S):
         i += limit_train_S
         S_in_S_study += statictis_type['S'][list_S_studies[i]]['total_S']
         V_in_S_study += statictis_type['S'][list_S_studies[i]]['total_V']
         R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_R']
-        # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD']
-        # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD-VE']
-        # R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_IVCD-SVE']
         N_in_S_study += statictis_type['S'][list_S_studies[i]]['total_N']
-        # TACHY_in_S_study += statictis_type['S'][list_S_studies[i]]['total_TACHY']
-        # BRADY_in_S_study += statictis_type['S'][list_S_studies[i]]['total_BRADY']
+        Q_in_S_study += statictis_type['S'][list_S_studies[i]]['total_Q']
 
     final_total_eval_S += S_in_S_study
     final_total_eval_V += V_in_S_study
     final_total_eval_R += R_in_S_study
     final_total_eval_N += N_in_S_study
+    final_total_eval_N += Q_in_S_study
     statictis_type['Eval']['S']['Total_S_in_S_study'] = S_in_S_study
     statictis_type['Eval']['S']['Total_V_in_S_study'] = V_in_S_study
     statictis_type['Eval']['S']['Total_R_in_S_study'] = R_in_S_study
     statictis_type['Eval']['S']['Total_N_in_S_study'] = N_in_S_study
-    # statictis_type['Eval']['S']['Total_TACHY_in_S_study'] = TACHY_in_S_study
-    # statictis_type['Eval']['S']['Total_BRADY_in_S_study'] = BRADY_in_S_study
+    statictis_type['Eval']['S']['Total_Q_in_S_study'] = N_in_S_study
     statictis_type['Eval']['S_study'] = list_S_studies[:limit_eval_S]
 
     ### V Region ###
@@ -220,8 +222,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         V_in_V_study = 0
         R_in_V_study = 0
         N_in_V_study = 0
-        BRADY_in_V_study = 0
-        TACHY_in_V_study = 0
+        Q_in_V_study = 0
 
         ## Check V study in Eval S study
         cnt = 0
@@ -245,12 +246,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
             S_in_V_study += statictis_type['V'][i]['total_S']
             V_in_V_study += statictis_type['V'][i]['total_V']
             R_in_V_study += statictis_type['V'][i]['total_R']
-            # R_in_V_study += statictis_type['V'][i]['total_IVCD']
-            # R_in_V_study += statictis_type['V'][i]['total_IVCD-VE']
-            # R_in_V_study += statictis_type['V'][i]['total_IVCD-SVE']
             N_in_V_study += statictis_type['V'][i]['total_N']
-            # TACHY_in_V_study += statictis_type['V'][i]['total_TACHY']
-            # BRADY_in_V_study += statictis_type['V'][i]['total_BRADY']
+            Q_in_V_study += statictis_type['V'][i]['total_Q']
 
         if V_in_V_study >= statictis_type['V']['total_V'] * ratio_train:
             break
@@ -259,14 +256,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     final_total_train_V += V_in_V_study
     final_total_train_R += R_in_V_study
     final_total_train_N += N_in_V_study
-    # final_total_train_TACHY += TACHY_in_V_study
-    # final_total_train_BRADY += BRADY_in_V_study
+    final_total_train_Q += Q_in_V_study
     statictis_type['Train']['V']['Total_S_in_V_study'] = S_in_V_study
     statictis_type['Train']['V']['Total_V_in_V_study'] = V_in_V_study
     statictis_type['Train']['V']['Total_R_in_V_study'] = R_in_V_study
     statictis_type['Train']['V']['Total_N_in_V_study'] = N_in_V_study
-    # statictis_type['Train']['V']['Total_TACHY_in_V_study'] = TACHY_in_V_study
-    # statictis_type['Train']['V']['Total_BRADY_in_V_study'] = BRADY_in_V_study
+    statictis_type['Train']['V']['Total_Q_in_V_study'] = N_in_V_study
     statictis_type['Train']['V_study'] = list_V_studies_train
 
     # times = 0
@@ -279,30 +274,25 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_V_study = 0
     R_in_V_study = 0
     N_in_V_study = 0
-    BRADY_in_S_study = 0
-    TACHY_in_S_study = 0
+    Q_in_V_study = 0
 
     for i in list_V_studies_eval:
         S_in_V_study += statictis_type['V'][i]['total_S']
         V_in_V_study += statictis_type['V'][i]['total_V']
         R_in_V_study += statictis_type['V'][i]['total_R']
-        # R_in_V_study += statictis_type['V'][i]['total_IVCD']
-        # R_in_V_study += statictis_type['V'][i]['total_IVCD-SVE']
-        # R_in_V_study += statictis_type['V'][i]['total_IVCD-VE']
         N_in_V_study += statictis_type['V'][i]['total_N']
-        # BRADY_in_S_study += statictis_type['V'][i]['total_BRADY']
-        # TACHY_in_S_study += statictis_type['V'][i]['total_TACHY']
+        Q_in_V_study += statictis_type['V'][i]['total_Q']
 
     final_total_eval_S += S_in_V_study
     final_total_eval_V += V_in_V_study
     final_total_eval_R += R_in_V_study
     final_total_eval_N += N_in_V_study
+    final_total_eval_Q += Q_in_V_study
     statictis_type['Eval']['V']['Total_S_in_V_study'] = S_in_V_study
     statictis_type['Eval']['V']['Total_V_in_V_study'] = V_in_V_study
     statictis_type['Eval']['V']['Total_R_in_V_study'] = R_in_V_study
     statictis_type['Eval']['V']['Total_N_in_V_study'] = N_in_V_study
-    # statictis_type['Eval']['V']['Total_BRADY_in_V_study'] = BRADY_in_V_study
-    # statictis_type['Eval']['V']['Total_TACHY_in_V_study'] = TACHY_in_V_study
+    statictis_type['Eval']['V']['Total_Q_in_V_study'] = N_in_V_study
     statictis_type['Eval']['V_study'] = list_V_studies_eval
 
     ### R Region ###
@@ -317,8 +307,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         V_in_R_study = 0
         R_in_R_study = 0
         N_in_R_study = 0
-        BRADY_in_R_study = 0
-        TACHY_in_R_study = 0
+        Q_in_R_study = 0
 
         ## Check R study in Eval S or V study
         cnt = 0
@@ -343,12 +332,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
             S_in_R_study += statictis_type['R'][i]['total_S']
             V_in_R_study += statictis_type['R'][i]['total_V']
             R_in_R_study += statictis_type['R'][i]['total_R']
-            # R_in_R_study += statictis_type['R'][i]['total_IVCD']
-            # R_in_R_study += statictis_type['R'][i]['total_IVCD-VE']
-            # R_in_R_study += statictis_type['R'][i]['total_IVCD-SVE']
             N_in_R_study += statictis_type['R'][i]['total_N']
-            # TACHY_in_R_study += statictis_type['R'][i]['total_TACHY']
-            # BRADY_in_R_study += statictis_type['R'][i]['total_BRADY']
+            Q_in_R_study += statictis_type['R'][i]['total_Q']
 
         if R_in_R_study >= statictis_type['R']['total_R'] * ratio_train:
             break
@@ -357,12 +342,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     final_total_train_V += V_in_R_study
     final_total_train_R += R_in_R_study
     final_total_train_N += N_in_R_study
+    final_total_train_Q += Q_in_R_study
     statictis_type['Train']['R']['Total_S_in_R_study'] = S_in_R_study
     statictis_type['Train']['R']['Total_V_in_R_study'] = V_in_R_study
     statictis_type['Train']['R']['Total_R_in_R_study'] = R_in_R_study
     statictis_type['Train']['R']['Total_N_in_R_study'] = N_in_R_study
-    # statictis_type['Train']['R']['Total_BRADY_in_R_study'] = BRADY_in_R_study
-    # statictis_type['Train']['R']['Total_TACHY_in_R_study'] = TACHY_in_R_study
+    statictis_type['Train']['R']['Total_Q_in_R_study'] = N_in_R_study
     statictis_type['Train']['R_study'] = list_R_studies_train
 
     # times = 0
@@ -375,31 +360,25 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_R_study = 0
     R_in_R_study = 0
     N_in_R_study = 0
-    BRADY_in_R_study = 0
-    TACHY_in_R_study = 0
+    Q_in_R_study = 0
 
     for i in list_R_studies_eval:
         S_in_R_study += statictis_type['R'][i]['total_S']
         V_in_R_study += statictis_type['R'][i]['total_V']
         R_in_R_study += statictis_type['R'][i]['total_R']
-        # R_in_R_study += statictis_type['R'][i]['total_IVCD']
-        # R_in_R_study += statictis_type['R'][i]['total_IVCD-VE']
-        # R_in_R_study += statictis_type['R'][i]['total_IVCD-SVE']
         N_in_R_study += statictis_type['R'][i]['total_N']
-        # N_in_R_study += statictis_type['R'][i]['total_BRADY']
-        # N_in_R_study += statictis_type['R'][i]['total_TACHY']
-
+        N_in_R_study += statictis_type['R'][i]['total_Q']
 
     final_total_eval_S += S_in_R_study
     final_total_eval_V += V_in_R_study
     final_total_eval_R += R_in_R_study
     final_total_eval_N += N_in_R_study
+    final_total_eval_Q += Q_in_R_study
     statictis_type['Eval']['R']['Total_S_in_R_study'] = S_in_R_study
     statictis_type['Eval']['R']['Total_V_in_R_study'] = V_in_R_study
     statictis_type['Eval']['R']['Total_R_in_R_study'] = R_in_R_study
     statictis_type['Eval']['R']['Total_N_in_R_study'] = N_in_R_study
-    # statictis_type['Eval']['R']['Total_BRADY_in_R_study'] = BRADY_in_R_study
-    # statictis_type['Eval']['R']['Total_TACHY_in_R_study'] = TACHY_in_R_study
+    statictis_type['Eval']['R']['Total_Q_in_R_study'] = Q_in_R_study
     statictis_type['Eval']['R_study'] = list_R_studies_eval
 
     ### N Region ###
@@ -414,8 +393,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_N_study = 0
     R_in_N_study = 0
     N_in_N_study = 0
-    BRADY_in_N_study = 0
-    TACHY_in_N_study = 0
+    Q_in_N_study = 0
 
     ## Check N study in Eval S or V or R study
     cnt = 0
@@ -441,12 +419,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         S_in_N_study += statictis_type['N'][i]['total_S']
         V_in_N_study += statictis_type['N'][i]['total_V']
         R_in_N_study += statictis_type['N'][i]['total_R']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-VE']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-SVE']
         N_in_N_study += statictis_type['N'][i]['total_N']
-        # BRADY_in_N_study += statictis_type['N'][i]['total_BRADY']
-        # TACHY_in_N_study += statictis_type['N'][i]['total_TACHY']
+        Q_in_N_study += statictis_type['N'][i]['total_Q']
 
     # if N_in_N_study >= statictis_type['N']['total_N'] * ratio_train:
     #     break
@@ -455,12 +429,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     final_total_train_V += V_in_N_study
     final_total_train_R += R_in_N_study
     final_total_train_N += N_in_N_study
+    final_total_train_Q += Q_in_N_study
     statictis_type['Train']['N']['Total_S_in_N_study'] = S_in_N_study
     statictis_type['Train']['N']['Total_V_in_N_study'] = V_in_N_study
     statictis_type['Train']['N']['Total_R_in_N_study'] = R_in_N_study
     statictis_type['Train']['N']['Total_N_in_N_study'] = N_in_N_study
-    # statictis_type['Train']['N']['Total_BRADY_in_N_study'] = BRADY_in_N_study
-    # statictis_type['Train']['N']['Total_TACHY_in_N_study'] = TACHY_in_N_study
+    statictis_type['Train']['N']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Train']['N_study'] = list_N_studies_train
 
     # times = 0
@@ -473,30 +447,25 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_N_study = 0
     R_in_N_study = 0
     N_in_N_study = 0
-    BRADY_in_N_study = 0
-    TACHY_in_N_study = 0
+    Q_in_N_study = 0
 
     for i in list_N_studies_eval:
         S_in_N_study += statictis_type['N'][i]['total_S']
         V_in_N_study += statictis_type['N'][i]['total_V']
         R_in_N_study += statictis_type['N'][i]['total_R']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-VE']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-SVE']
         N_in_N_study += statictis_type['N'][i]['total_N']
-        # BRADY_in_N_study += statictis_type['N'][i]['total_BRADY']
-        # TACHY_in_N_study += statictis_type['N'][i]['total_TACHY']
+        Q_in_N_study += statictis_type['N'][i]['total_Q']
 
     final_total_eval_S += S_in_N_study
     final_total_eval_V += V_in_N_study
     final_total_eval_R += R_in_N_study
     final_total_eval_N += N_in_N_study
+    final_total_eval_Q += Q_in_N_study
     statictis_type['Eval']['N']['Total_S_in_N_study'] = S_in_N_study
     statictis_type['Eval']['N']['Total_V_in_N_study'] = V_in_N_study
     statictis_type['Eval']['N']['Total_R_in_N_study'] = R_in_N_study
     statictis_type['Eval']['N']['Total_N_in_N_study'] = N_in_N_study
-    # statictis_type['Eval']['TACHY']['Total_BRADY_in_N_study'] = BRADY_in_N_study
-    # statictis_type['Eval']['TACHY']['Total_N_in_N_study'] = TACHY_in_N_study
+    statictis_type['Eval']['N']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Eval']['N_study'] = list_N_studies_eval
 
     ### BRADY Region ###
@@ -511,8 +480,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_N_study = 0
     R_in_N_study = 0
     N_in_N_study = 0
-    BRADY_in_N_study = 0
-    TACHY_in_N_study = 0
+    Q_in_N_study = 0
 
     ## Check N study in Eval S or V or R study
     cnt = 0
@@ -539,8 +507,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         V_in_N_study += statictis_type['BRADY'][i]['total_V']
         R_in_N_study += statictis_type['BRADY'][i]['total_R']
         N_in_N_study += statictis_type['BRADY'][i]['total_N']
-        # BRADY_in_N_study += statictis_type['BRADY'][i]['total_BRADY']
-        # TACHY_in_N_study += statictis_type['BRADY'][i]['total_TACHY']
+        Q_in_N_study += statictis_type['BRADY'][i]['total_Q']
 
     # if N_in_N_study >= statictis_type['N']['total_N'] * ratio_train:
     #     break
@@ -553,8 +520,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['BRADY']['Total_V_in_N_study'] = V_in_N_study
     statictis_type['Train']['BRADY']['Total_R_in_N_study'] = R_in_N_study
     statictis_type['Train']['BRADY']['Total_N_in_N_study'] = N_in_N_study
-    # statictis_type['Train']['BRADY']['Total_BRADY_in_N_study'] = BRADY_in_N_study
-    # statictis_type['Train']['BRADY']['Total_TACHY_in_N_study'] = TACHY_in_N_study
+    statictis_type['Train']['BRADY']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Train']['BRADY_study'] = list_BRADY_studies_train
 
     # times = 0
@@ -567,19 +533,14 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_BRADY_study = 0
     R_in_BRADY_study = 0
     N_in_BRADY_study = 0
-    BRADY_in_BRADY_study = 0
-    TACHY_in_BRADY_study = 0
+    Q_in_BRADY_study = 0
 
     for i in list_BRADY_studies_eval:
         S_in_BRADY_study += statictis_type['BRADY'][i]['total_S']
         V_in_BRADY_study += statictis_type['BRADY'][i]['total_V']
         R_in_BRADY_study += statictis_type['BRADY'][i]['total_R']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-VE']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-SVE']
         N_in_BRADY_study += statictis_type['BRADY'][i]['total_N']
-        # BRADY_in_BRADY_study += statictis_type['BRADY'][i]['total_BRADY']
-        # TACHY_in_BRADY_study += statictis_type['BRADY'][i]['total_TACHY']
+        Q_in_BRADY_study += statictis_type['BRADY'][i]['total_Q']
 
     final_total_eval_S += S_in_BRADY_study
     final_total_eval_V += V_in_BRADY_study
@@ -589,8 +550,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['BRADY']['Total_V_in_BRADY_study'] = V_in_BRADY_study
     statictis_type['Eval']['BRADY']['Total_R_in_BRADY_study'] = R_in_BRADY_study
     statictis_type['Eval']['BRADY']['Total_N_in_BRADY_study'] = N_in_BRADY_study
-    # statictis_type['Eval']['BRADY']['Total_BRADY_in_BRADY_study'] = BRADY_in_BRADY_study
-    # statictis_type['Eval']['BRADY']['Total_TACHY_in_BRADY_study'] = TACHY_in_BRADY_study
+    statictis_type['Eval']['BRADY']['Total_Q_in_BRADY_study'] = Q_in_BRADY_study
     statictis_type['Eval']['BRADY_study'] = list_BRADY_studies_eval
 
     ### TACHY Region ###
@@ -605,8 +565,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_N_study = 0
     R_in_N_study = 0
     N_in_N_study = 0
-    BRADY_in_N_study = 0
-    TACHY_in_N_study = 0
+    Q_in_N_study = 0
 
     ## Check N study in Eval S or V or R study
     cnt = 0
@@ -633,8 +592,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
         V_in_N_study += statictis_type['TACHY'][i]['total_V']
         R_in_N_study += statictis_type['TACHY'][i]['total_R']
         N_in_N_study += statictis_type['TACHY'][i]['total_N']
-        # BRADY_in_N_study += statictis_type['TACHY'][i]['total_BRADY']
-        # TACHY_in_N_study += statictis_type['TACHY'][i]['total_TACHY']
+        Q_in_N_study += statictis_type['TACHY'][i]['total_Q']
 
     # if N_in_N_study >= statictis_type['N']['total_N'] * ratio_train:
     #     break
@@ -643,12 +601,12 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     final_total_train_V += V_in_N_study
     final_total_train_R += R_in_N_study
     final_total_train_N += N_in_N_study
+    final_total_train_Q += Q_in_N_study
     statictis_type['Train']['TACHY']['Total_S_in_N_study'] = S_in_N_study
     statictis_type['Train']['TACHY']['Total_V_in_N_study'] = V_in_N_study
     statictis_type['Train']['TACHY']['Total_R_in_N_study'] = R_in_N_study
     statictis_type['Train']['TACHY']['Total_N_in_N_study'] = N_in_N_study
-    # statictis_type['Train']['TACHY']['Total_BRADY_in_N_study'] = BRADY_in_N_study
-    # statictis_type['Train']['TACHY']['Total_TACHY_in_N_study'] = TACHY_in_N_study
+    statictis_type['Train']['TACHY']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Train']['TACHY_study'] = list_TACHY_studies_train
 
     # times = 0
@@ -661,56 +619,138 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     V_in_TACHY_study = 0
     R_in_TACHY_study = 0
     N_in_TACHY_study = 0
-    BRADY_in_TACHY_study = 0
-    TACHY_in_TACHY_study = 0
+    Q_in_TACHY_study = 0
 
     for i in list_TACHY_studies_eval:
         S_in_TACHY_study += statictis_type['TACHY'][i]['total_S']
         V_in_TACHY_study += statictis_type['TACHY'][i]['total_V']
         R_in_TACHY_study += statictis_type['TACHY'][i]['total_R']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-VE']
-        # R_in_N_study += statictis_type['N'][i]['total_IVCD-SVE']
         N_in_TACHY_study += statictis_type['TACHY'][i]['total_N']
-        # BRADY_in_TACHY_study += statictis_type['TACHY'][i]['total_BRADY']
-        # TACHY_in_TACHY_study += statictis_type['TACHY'][i]['total_TACHY']
+        Q_in_TACHY_study += statictis_type['TACHY'][i]['total_Q']
 
     final_total_eval_S += S_in_TACHY_study
     final_total_eval_V += V_in_TACHY_study
     final_total_eval_R += R_in_TACHY_study
     final_total_eval_N += N_in_TACHY_study
+    final_total_eval_Q += Q_in_TACHY_study
     statictis_type['Eval']['TACHY']['Total_S_in_TACHY_study'] = S_in_TACHY_study
     statictis_type['Eval']['TACHY']['Total_V_in_TACHY_study'] = V_in_TACHY_study
     statictis_type['Eval']['TACHY']['Total_R_in_TACHY_study'] = R_in_TACHY_study
     statictis_type['Eval']['TACHY']['Total_N_in_TACHY_study'] = N_in_TACHY_study
-    # statictis_type['Eval']['TACHY']['Total_BRADY_in_TACHY_study'] = BRADY_in_TACHY_study
-    # statictis_type['Eval']['TACHY']['Total_TACHY_in_TACHY_study'] = TACHY_in_TACHY_study
+    statictis_type['Eval']['TACHY']['Total_Q_in_TACHY_study'] = Q_in_TACHY_study
     statictis_type['Eval']['TACHY_study'] = list_TACHY_studies_eval
+
+    ### NOISE Region ###
+    times = 0
+    list_NOISE_studies = [i for i in statictis_type['Q'].keys() if not 'total_' in i]
+    # while True:
+    #     times += 1
+    print('NOISE_train: ', times)
+    shuffle(list_NOISE_studies)
+    shuffle(list_NOISE_studies)
+    S_in_Q_study = 0
+    V_in_Q_study = 0
+    R_in_Q_study = 0
+    N_in_Q_study = 0
+    Q_in_Q_study = 0
+
+    ## Check N study in Eval S or V or R study
+    cnt = 0
+    indx = 0
+    list_NOISE_studies_train = []
+    list_NOISE_studies_eval = []
+    while cnt < limit_train_NOISE and indx < len(list_NOISE_studies):
+        if list_NOISE_studies[indx] in statictis_type['Eval']['S_study'] \
+                or list_NOISE_studies[indx] in statictis_type['Eval']['V_study'] \
+                or list_NOISE_studies[indx] in statictis_type['Eval']['R_study']:
+            list_NOISE_studies_eval.append(list_NOISE_studies[indx])
+        else:
+            list_NOISE_studies_train.append(list_NOISE_studies[indx])
+            cnt += 1
+
+        indx += 1
+
+    while indx < len(list_NOISE_studies):
+        list_NOISE_studies_eval.append(list_NOISE_studies[indx])
+        indx += 1
+
+    for i in list_NOISE_studies_train:
+        S_in_Q_study += statictis_type['Q'][i]['total_S']
+        V_in_Q_study += statictis_type['Q'][i]['total_V']
+        R_in_Q_study += statictis_type['Q'][i]['total_R']
+        N_in_Q_study += statictis_type['Q'][i]['total_N']
+        Q_in_Q_study += statictis_type['Q'][i]['total_Q']
+
+    # if N_in_Q_study >= statictis_type['N']['total_N'] * ratio_train:
+    #     break
+
+    final_total_train_S += S_in_Q_study
+    final_total_train_V += V_in_Q_study
+    final_total_train_R += R_in_Q_study
+    final_total_train_N += N_in_Q_study
+    final_total_train_Q += Q_in_Q_study
+    statictis_type['Train']['Q']['Total_S_in_Q_study'] = S_in_Q_study
+    statictis_type['Train']['Q']['Total_V_in_Q_study'] = V_in_Q_study
+    statictis_type['Train']['Q']['Total_R_in_Q_study'] = R_in_Q_study
+    statictis_type['Train']['Q']['Total_N_in_Q_study'] = N_in_Q_study
+    statictis_type['Train']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
+    statictis_type['Train']['NOISE_study'] = list_NOISE_studies_train
+
+    # times = 0
+    # list_NOISE_studies = list_NOISE_studies[limit_train_NOISE:]
+    # times += 1
+    # print('NOISE_eval: ', times)
+    # shuffle(list_N_studies)
+    # shuffle(list_N_studies)
+    S_in_Q_study = 0
+    V_in_Q_study = 0
+    R_in_Q_study = 0
+    N_in_Q_study = 0
+    Q_in_Q_study = 0
+
+    for i in list_NOISE_studies_eval:
+        S_in_Q_study += statictis_type['Q'][i]['total_S']
+        V_in_Q_study += statictis_type['Q'][i]['total_V']
+        R_in_Q_study += statictis_type['Q'][i]['total_R']
+        N_in_Q_study += statictis_type['Q'][i]['total_N']
+        Q_in_Q_study += statictis_type['Q'][i]['total_Q']
+
+    final_total_eval_S += S_in_Q_study
+    final_total_eval_V += V_in_Q_study
+    final_total_eval_R += R_in_Q_study
+    final_total_eval_N += N_in_Q_study
+    final_total_eval_Q += Q_in_Q_study
+    statictis_type['Eval']['Q']['Total_S_in_Q_study'] = S_in_Q_study
+    statictis_type['Eval']['Q']['Total_V_in_Q_study'] = V_in_Q_study
+    statictis_type['Eval']['Q']['Total_R_in_Q_study'] = R_in_Q_study
+    statictis_type['Eval']['Q']['Total_N_in_Q_study'] = N_in_Q_study
+    statictis_type['Eval']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
+    statictis_type['Eval']['NOISE_study'] = list_NOISE_studies_eval
 
     statictis_type['Total_train_N'] = final_total_train_N
     statictis_type['Total_train_V'] = final_total_train_V
     statictis_type['Total_train_R'] = final_total_train_R
     statictis_type['Total_train_S'] = final_total_train_S
-    # statictis_type['Total_train_BRADY'] = final_total_train_BRADY
-    # statictis_type['Total_train_TACHY'] = final_total_train_TACHY
+    statictis_type['Total_train_Q'] = final_total_train_Q
 
     statictis_type['Total_eval_N'] = final_total_eval_N
     statictis_type['Total_eval_V'] = final_total_eval_V
     statictis_type['Total_eval_R'] = final_total_eval_R
     statictis_type['Total_eval_S'] = final_total_eval_S
-    # statictis_type['Total_eval_BRADY'] = final_total_eval_BRADY
-    # statictis_type['Total_eval_TACHY'] = final_total_eval_TACHY
+    statictis_type['Total_eval_Q'] = final_total_eval_Q
 
     statictis_type['ratio_train_eval_test'] = [8, 2]
 
-    print('Train: N {}, V {}, R {}, S {}\nEval: N {}, V {}, R {}, S {}'.format(statictis_type['Total_train_N'],
+    print('Train: N {}, V {}, R {}, S {}, Q {}\nEval: N {}, V {}, R {}, S {}, Q {}'.format(statictis_type['Total_train_N'],
                                                                                  statictis_type['Total_train_V'],
                                                                                  statictis_type['Total_train_R'],
                                                                                  statictis_type['Total_train_S'],
+                                                                                 statictis_type['Total_train_Q'],
                                                                                  statictis_type['Total_eval_N'],
                                                                                  statictis_type['Total_eval_V'],
                                                                                  statictis_type['Total_eval_R'],
-                                                                                 statictis_type['Total_eval_S']
+                                                                                 statictis_type['Total_eval_S'],
+                                                                                 statictis_type['Total_eval_Q'],
                                                                                                                         ))
 
     fp = open(output_path + 'log_data_noise.json', 'w')

@@ -18,6 +18,8 @@ import model as beat_model
 import inputs as dat_model
 from utils.logging import TextLogging
 
+import keras
+
 
 def _calc_num_steps(num_samples, batch_size):
     return (num_samples + batch_size - 1) // batch_size
@@ -171,7 +173,7 @@ def train_beat_classification(use_gpu_index,
         print(os.environ["CUDA_VISIBLE_DEVICES"])
         print('Use CPU')
 
-    class ConfusionMatrix(tf.keras.metrics.Metric):
+    class ConfusionMatrix(keras.metrics.Metric):
         def __init__(self, classes, name='confusion_matrix'):
             super(ConfusionMatrix, self).__init__(name=name)
             self.save_matrix = self.add_weight(shape=(classes, classes), name='cm',
@@ -181,8 +183,11 @@ def train_beat_classification(use_gpu_index,
         def update_state(self, y_true, y_pred, sample_weight=None):
             y_true = tf.argmax(y_true, axis=-1)
             y_pred = tf.argmax(y_pred, axis=-1)
-            y_true = tf.keras.backend.flatten(y_true)
-            y_pred = tf.keras.backend.flatten(y_pred)
+            # y_true = keras.backend.flatten(y_true)
+            # y_pred = keras.backend.flatten(y_pred)
+            y_true = tf.reshape(y_true, [-1])
+            y_pred = tf.reshape(y_pred, [-1])
+
             confusion_matrix = tf.math.confusion_matrix(labels=y_true, predictions=y_pred,
                                                         num_classes=self.num_of_class)
             if sample_weight is not None:
@@ -195,9 +200,9 @@ def train_beat_classification(use_gpu_index,
             return self.save_matrix
 
         def reset_states(self):
-            tf.keras.backend.set_value(self.save_matrix, np.zeros((self.num_of_class, self.num_of_class)))
+            keras.backend.set_value(self.save_matrix, np.zeros((self.num_of_class, self.num_of_class)))
 
-    class CustomCallback(tf.keras.callbacks.Callback):
+    class CustomCallback(keras.callbacks.Callback):
         def __init__(self,
                      model_name,
                      log_train,
@@ -286,11 +291,11 @@ def train_beat_classification(use_gpu_index,
             self.progress = 0
             if epoch >= self.valid_freq and epoch % self.valid_freq == 0:
                 if self.length_train is not None and self.length_valid is not None:
-                    self.train_progressbar = tf.keras.utils.Progbar(
+                    self.train_progressbar = keras.utils.Progbar(
                         self.length_train + self.length_valid)
             else:
                 if self.length_train is not None:
-                    self.train_progressbar = tf.keras.utils.Progbar(self.length_train)
+                    self.train_progressbar = keras.utils.Progbar(self.length_train)
 
         def on_epoch_end(self, epoch, logs=None):
             epoch += 1
@@ -311,15 +316,16 @@ def train_beat_classification(use_gpu_index,
             self.log_train.write_mylines("Training " + format_metrics(train_metrics) + '\n')
 
             confusion_matrix = logs['confusion_matrix']
-            cm_str = print_cm(confusion_matrix.copy(), self.lbl_train.keys(), False)
+            cm_str = print_cm(confusion_matrix, self.lbl_train.keys(), False)
             self.log_train.write_mylines("Confusion \n" + cm_str + '\n')
 
             for f in os.listdir(self.last_checkpoint_dir):
                 os.remove(os.path.join(self.last_checkpoint_dir, f))
 
             self.model.save_weights(
-                os.path.join(self.last_checkpoint_dir, self.model_name + "-epoch-{}".format(epoch)))
+                os.path.join(self.last_checkpoint_dir, self.model_name + "-epoch-{}.weights.h5".format(epoch)))
 
+            confusion_matrix = np.asarray(confusion_matrix)
             FP = confusion_matrix.sum(axis=0) - np.diag(confusion_matrix)
             FN = confusion_matrix.sum(axis=1) - np.diag(confusion_matrix)
             TP = np.diag(confusion_matrix)
@@ -375,7 +381,7 @@ def train_beat_classification(use_gpu_index,
                 self.log_train.write_mylines("Validation " + format_metrics(val_metrics) + '\n')
 
                 confusion_matrix = logs['val_confusion_matrix']
-                cm_str = print_cm(confusion_matrix.copy(), self.lbl_train.keys(), False)
+                cm_str = print_cm(confusion_matrix, self.lbl_train.keys(), False)
                 self.log_train.write_mylines("Confusion \n" + cm_str + '\n')
 
                 report_row['accuracy_eval'] = val_metrics['accuracy']
@@ -383,6 +389,7 @@ def train_beat_classification(use_gpu_index,
                 report_row['precision_eval'] = val_metrics['precision']
                 report_row['loss_eval'] = val_metrics['loss']
 
+                confusion_matrix = np.asarray(confusion_matrix)
                 FP = confusion_matrix.sum(axis=0) - np.diag(confusion_matrix)
                 FN = confusion_matrix.sum(axis=1) - np.diag(confusion_matrix)
                 TP = np.diag(confusion_matrix)
@@ -448,7 +455,7 @@ def train_beat_classification(use_gpu_index,
 
                     self.model.save_weights(
                         os.path.join(self.best_loss_checkpoint_dir,
-                                     self.model_name + "-epoch-{}".format(epoch)))
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
                     self.best_loss = float(num_val_metrics[1])
                     self.bk_metric["best_loss"] = self.best_loss
                     bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
@@ -476,7 +483,7 @@ def train_beat_classification(use_gpu_index,
 
                     self.model.save_weights(
                         os.path.join(self.best_squared_error_checkpoint_dir,
-                                     self.model_name + "-epoch-{}".format(epoch)))
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
                     self.best_squared_error_metrics = squared_error_metrics_eval
                     self.bk_metric["best_squared_error_metrics"] = self.best_squared_error_metrics
                     bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
@@ -528,7 +535,7 @@ def train_beat_classification(use_gpu_index,
 
                     self.model.save_weights(
                         os.path.join(self.best_f1_checkpoint_dir,
-                                     self.model_name + "-epoch-{}".format(epoch)))
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
                     self.best_f1_score_metrics = f1_score_metrics_eval
                     self.bk_metric["best_f1_score_metrics"] = self.best_f1_score_metrics
                     bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
@@ -553,7 +560,7 @@ def train_beat_classification(use_gpu_index,
                     "======================================================================\n")
                 print("Epoch %05d: early stopping" % (self.stopped_epoch + 1))
 
-    class CustomRecall(tf.keras.metrics.Recall):
+    class CustomRecall(keras.metrics.Recall):
         def __init__(self,
                      class_id=None,
                      name=None):
@@ -572,7 +579,7 @@ def train_beat_classification(use_gpu_index,
         def get_config(self):
             return super(CustomRecall, self).get_config()
 
-    class CustomPrecision(tf.keras.metrics.Precision):
+    class CustomPrecision(keras.metrics.Precision):
         def __init__(self,
                      class_id=None,
                      name=None):
@@ -591,7 +598,7 @@ def train_beat_classification(use_gpu_index,
         def get_config(self):
             return super(CustomPrecision, self).get_config()
 
-    class CustomMeanMetricWrapper(tf.keras.metrics.Mean):
+    class CustomMeanMetricWrapper(keras.metrics.Mean):
 
         def __init__(self, fn, name=None, dtype=None, **kwargs):
             super(CustomMeanMetricWrapper, self).__init__(name=name, dtype=dtype)
@@ -615,7 +622,7 @@ def train_beat_classification(use_gpu_index,
     class CustomCategoricalAccuracy(CustomMeanMetricWrapper):
         def __init__(self, name='categorical_accuracy', dtype=None):
             super(CustomCategoricalAccuracy, self).__init__(
-                tf.keras.metrics.categorical_accuracy, name, dtype=dtype)
+                keras.metrics.categorical_accuracy, name, dtype=dtype)
 
     def _preprocess_proto(example_proto, feature_len, label_len, class_num):
         """Read sample from protocol buffer."""
@@ -675,6 +682,12 @@ def train_beat_classification(use_gpu_index,
         except:
             from_logits = False
 
+        # print("Info: {}_{}_{}_{}_{}_{}".format(feature_len,
+        #                                         len(beat_class),
+        #                                         from_logits,
+        #                                         num_filters,
+        #                                         num_loop,
+        #                                         float(_qrs_model_path[-1])))
         train_model = getattr(beat_model, func)(feature_len,
                                                 len(beat_class),
                                                 from_logits,
@@ -685,13 +698,13 @@ def train_beat_classification(use_gpu_index,
     else:
         return None
 
-    # tf.keras.utils.plot_model(train_model,
+    # keras.utils.plot_model(train_model,
     #                           to_file=log_dir + '/ModelGraph.png',
     #                           show_shapes=True,
     #                           show_dtype=True)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-    loss = tf.keras.losses.CategoricalCrossentropy(from_logits=from_logits)
+    optimizer = keras.optimizers.Adam(learning_rate=1e-3)
+    loss = keras.losses.CategoricalCrossentropy(from_logits=from_logits)
     if from_logits:
         metrics = [
             ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
@@ -705,15 +718,15 @@ def train_beat_classification(use_gpu_index,
             metrics.append(CustomPrecision(class_id=i, name='{}_P'.format(beat[i])))
     else:
         metrics = [
-            tf.keras.metrics.CategoricalAccuracy(name='accuracy'),
+            keras.metrics.CategoricalAccuracy(name='accuracy'),
             ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
-            tf.keras.metrics.Recall(name='recall'),
-            tf.keras.metrics.Precision(name='precision')
+            keras.metrics.Recall(name='recall'),
+            keras.metrics.Precision(name='precision')
         ]
         beat = [c for _, c in enumerate(beat_class.keys())]
         for i in range(len(beat_class)):
-            metrics.append(tf.keras.metrics.Recall(class_id=i, name='{}_Se'.format(beat[i])))
-            metrics.append(tf.keras.metrics.Precision(class_id=i, name='{}_P'.format(beat[i])))
+            metrics.append(keras.metrics.Recall(class_id=i, name='{}_Se'.format(beat[i])))
+            metrics.append(keras.metrics.Precision(class_id=i, name='{}_P'.format(beat[i])))
 
     train_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 

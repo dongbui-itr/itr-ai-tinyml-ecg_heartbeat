@@ -44,16 +44,16 @@ CLIP_RANGE = [-5.0, 5.0]
 RHYTHM_CLIP_RANGE = [-5.0, 5.0]
 MAX_NUM_IMG_SAVE = 100
 MAX_LEN_PLOT = 15
-EVENT_LEN_STANDARD = 10
+EVENT_LEN_STANDARD = 100
 LABEL_BEAT_TYPES = OrderedDict(
     [
         ("0", OrderedDict([
             ("NOTABEAT", [
-            ]),
+           ]),
             ("N", [
                 "sinus tachycardia/out_of_list",
                 "sinus arrhythmia/out_of_list",
-            ]),
+           ]),
             ("A", [
                 "sinus tachycardia/atrial run",
                 "sinus tachycardia/atrial couplet",
@@ -91,7 +91,7 @@ LABEL_BEAT_TYPES = OrderedDict(
                 "sinus rhythm/pac",
 
                 "supraventricular tachycardia/out_of_list"
-            ]),
+           ]),
             ("V", [
                 "sinus tachycardia/ventricular run",
                 "sinus tachycardia/ventricular couplet",
@@ -124,17 +124,17 @@ LABEL_BEAT_TYPES = OrderedDict(
                 "sinus rhythm/pvc",
 
                 "ventricular tachycardia/out_of_list"
-            ]),
+           ]),
             ("R", [
                 "sinus tachycardia/ivcd",
                 "sinus bradycardia/ivcd",
                 "sinus arrhythmia/ivcd",
                 "sinus rhythm/ivcd",
-            ]),
-        ])),
+           ]),
+       ])),
         ("1", OrderedDict([
             ("NOTABEAT", [
-            ]),
+           ]),
             ("N", [
                 "sinus arrhythmia/out_of_list",
                 "sinus tachycardia/out_of_list",
@@ -143,7 +143,7 @@ LABEL_BEAT_TYPES = OrderedDict(
                 "sinus bradycardia/multi events",
                 "sinus arrhythmia/multi events",
                 "sinus rhythm/multi events",
-            ]),
+           ]),
             ("A", [
                 "sinus tachycardia/atrial run",
                 "sinus tachycardia/atrial couplet",
@@ -181,7 +181,7 @@ LABEL_BEAT_TYPES = OrderedDict(
                 "sinus rhythm/pac",
 
                 "supraventricular tachycardia/out_of_list"
-            ]),
+           ]),
             ("V", [
                 "sinus tachycardia/ventricular run",
                 "sinus tachycardia/ventricular couplet",
@@ -214,56 +214,64 @@ LABEL_BEAT_TYPES = OrderedDict(
                 "sinus rhythm/pvc",
 
                 "ventricular tachycardia/out_of_list"
-            ]),
+           ]),
             ("R", [
                 "sinus tachycardia/ivcd",
                 "sinus bradycardia/ivcd",
                 "sinus arrhythmia/ivcd",
                 "sinus rhythm/ivcd",
-            ]),
+           ]),
             ("Q", [
-            ]),
-        ])),
+           ]),
+       ])),
         ("2", OrderedDict([
             ("NOTABEAT", [
-            ]),
+           ]),
             ("ARTIFACT", [
-            ]),
+           ]),
             ("N", [
-            ]),
+           ]),
             ("A", [
-            ]),
+           ]),
             ("V", [
-            ]),
+           ]),
             ("R", [
-            ]),
+           ]),
             ("Q", [
-            ]),
-        ])),
+           ]),
+       ])),
         ("3", OrderedDict([
             ("NOTABEAT", [
-            ]),
+           ]),
             ("N", [
-            ]),
+           ]),
             ("S", [
-            ]),
+           ]),
             ("V", [
-            ]),
+           ]),
             ("R", [
-            ]),
-        ])),
+           ]),
+       ])),
         ("4", OrderedDict([
             ("NOTABEAT", [
-            ]),
+           ]),
             ("N", [
-            ]),
-        ]))
-    ])
+           ]),
+       ])),
+        ("5", OrderedDict([
+            ("NOTABEAT", [
+           ]),
+            ("N", [
+           ]),
+            ("ARTIFACT", [
+           ]),
+       ]))
+   ])
 LABEL_PHY_BEAT_TYPES = OrderedDict([("NOTABEAT", []),
                                     ("N", ['N']),
                                     ("A", ['A', 'a', 'S']),
                                     ("V", ['V', 'E']),
-                                    ])
+                                   ])
 INV_SYMBOL = {1: "N",
               60: "V",
               70: "A",
@@ -504,28 +512,40 @@ def _process_sample(use_gpu_index,
         ind = {k: i for i, k in enumerate(beat_class.keys())}
         ind_invert = {i: k for i, k in enumerate(beat_class.keys())}
 
-        if debug:
-            plt.plot(buf_ecg)
-            plt.plot(beat_true, buf_ecg[ beat_true ], 'r*')
-            [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
-            plt.show()
-            plt.close()
-
         if len(buf_ecg) > feature_len:
             buf_ecg = buf_ecg[:feature_len]
             symbol_true = symbol_true[np.flatnonzero(beat_true < feature_len)]
             beat_true = beat_true[np.flatnonzero(beat_true < feature_len)]
 
+        # indx_Q = np.flatnonzero(symbol_true == 'Q')
+        # if len(indx_Q) > 0:
+        #     symbol_true = np.delete(symbol_true, indx_Q)
+        #     beat_true = np.delete(beat_true, indx_Q)
+
+        if debug:
+            plt.plot(buf_ecg)
+            plt.plot(beat_true, buf_ecg[beat_true], 'r*')
+            [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
+            plt.show()
+            plt.close()
+
+        indx_N = np.flatnonzero(symbol_true != 'Q')
+        if len(indx_N) > 0:
+            symbol_true[indx_N] = 'N'
+
         indx_Q = np.flatnonzero(symbol_true == 'Q')
         if len(indx_Q) > 0:
-            symbol_true = np.delete(symbol_true, indx_Q)
-            beat_true = np.delete(beat_true, indx_Q)
+            _symbol_true = []
+            for i in range(len(symbol_true)):
+                if i in indx_Q:
+                    _symbol_true.append('ARTIFACT')
+                else:
+                    _symbol_true.append(symbol_true[i])
 
-        indx_N = np.flatnonzero(symbol_true != 'N')
-        symbol_true[indx_N] = 'N'
+            symbol_true = np.asarray(_symbol_true)
 
         data_len = len(buf_ecg)
-        symbol_true = [ ind[ s ] for s in symbol_true ]
+        symbol_true = [ind[s] for s in symbol_true]
         beat_true = np.asarray(beat_true, dtype=int)
         symbol_true = np.asarray(symbol_true, dtype=int)
 
@@ -608,6 +628,18 @@ def _process_sample(use_gpu_index,
         # print(process_label_symbol)
 
         np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                        writer=writer)
+
+        np_to_tfrecords(sample_buffer=np.reshape(process_data/3, (-1, feature_len)),
+                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                        writer=writer)
+
+        np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
+                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                        writer=writer)
+
+        np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
                         label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
                         writer=writer)
 
@@ -794,8 +826,8 @@ def build_tfrecord(use_gpu_index,
                 save_image)
 
         # _process_files_batch(use_gpu_index,
-        #                      process_queue[ process_index ],
-        #                      process_lock[ process_index ],
+        #                      process_queue[process_index],
+        #                      process_lock[process_index],
         #                      process_index,
         #                      ranges,
         #                      all_file,
@@ -1170,7 +1202,7 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     train_beat_type = dict()
 
     #open log_data.json
-    with open(media_dir + 'log_data.json', 'r') as fp:
+    with open(media_dir + 'log_data_noise.json', 'r') as fp:
         list_data = json.load(fp)
 
     # all_file_train = glob(data_dir + '/*/*/*.{}'.format(EXT_BEAT))
@@ -1179,9 +1211,20 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     res = {}
     for label in datastore_dict["beat_class"].keys():
         if not 'NOTABEAT' in label:
-            list_events = np.asarray(list_data['Train'][f'{label}_study'])
-            for studyid in list_events:
-                all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(label, studyid, EXT_BEAT)))
+            if label == 'N':
+                list_events = []
+                for _label in ['N', 'S', 'V', 'R', 'BRADY', 'TACHY']:
+                    _list_events = np.asarray(list_data['Train'][f'{_label}_study'])
+                    list_events.extend(_list_events)
+                    for studyid in _list_events:
+                        all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+
+            else:
+                _label = 'noise'
+                _list_events = np.asarray(list_data['Train'][f'{_label.upper()}_study'])
+                list_events.extend(_list_events)
+                for studyid in _list_events:
+                    all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
 
             all_train_beat_type[label] = 0
             train_beat_type[label] = 0
@@ -1235,13 +1278,23 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     all_file_eval = []
     for label in datastore_dict["beat_class"].keys():
         if not 'NOTABEAT' in label :
-            list_events = np.asarray(list_data['Eval'][f'{label}_study'])
-            for studyid in list_events:
-                all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(label, studyid, EXT_BEAT)))
+            if label == 'N':
+                list_events = []
+                for _label in ['N', 'S', 'V', 'R', 'BRADY', 'TACHY']:
+                    _list_events = np.asarray(list_data['Eval'][f'{_label}_study'])
+                    list_events.extend(_list_events)
+                    for studyid in _list_events:
+                        all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(label, studyid, EXT_BEAT)))
+        else:
+            _label = 'noise'
+            _list_events = np.asarray(list_data['Eval'][f'{_label.upper()}_study'])
+            list_events.extend(_list_events)
+            for studyid in _list_events:
+                all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
 
-            all_eval_beat_type[label] = 0
-            eval_beat_type[label] = 0
-            res[label] = 0
+        all_eval_beat_type[label] = 0
+        eval_beat_type[label] = 0
+        res[label] = 0
 
     shuffle(all_file_eval)
     for f in all_file_eval:
@@ -1450,7 +1503,7 @@ def main(argv=None):
 
     datasets = [
         '256_60.0_960_1_1_0_2_0_0.7',
-    ]
+   ]
 
     for d in datasets:
         print("\n>>>>>>>>>>> {} <<<<<<<<<<<\n".format(d))
