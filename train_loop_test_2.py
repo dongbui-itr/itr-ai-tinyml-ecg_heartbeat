@@ -20,8 +20,7 @@ def train():
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
-    # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240520') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
@@ -61,7 +60,8 @@ def train():
     MODEL = [
         # "beat_concat_seq_add_more_other_7_16.32.48.64_0_0.5",
         # "beat_concat_seq_add_more_other_11_16.32.48.64_0_0.5",
-        "beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5",
+        # "beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5",
+        "beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5", #240510
         # "beat_concat_seq_add_depthwise_250Hz_7_16.32.48_0_0.5",
         # "beat_depthwise2_128Hz_7_32.32.48_0_0.5",
         # "beat_seq_mobilenet_v2_1d_0_0.0.0_0_0.5",
@@ -186,23 +186,23 @@ def train():
                     if not os.path.exists(i):
                         os.makedirs(i)
 
-                # region training
-                process_train = multiprocessing.Process(target=train_beat_classification,
-                                                        args=(0,
-                                                              model_name,
-                                                              log_dir,
-                                                              model_dir,
-                                                              datastore_dict,
-                                                              None,
-                                                              train_directory,
-                                                              eval_directory,
-                                                              batch_size,
-                                                              4,
-                                                              2,
-                                                              MAX_EPOCH))
-                process_train.start()
-                process_train.join()
-                # endregion training
+                # # region training
+                # process_train = multiprocessing.Process(target=train_beat_classification,
+                #                                         args=(0,
+                #                                               model_name,
+                #                                               log_dir,
+                #                                               model_dir,
+                #                                               datastore_dict,
+                #                                               None,
+                #                                               train_directory,
+                #                                               eval_directory,
+                #                                               batch_size,
+                #                                               4,
+                #                                               2,
+                #                                               MAX_EPOCH))
+                # process_train.start()
+                # process_train.join()
+                # # endregion training
 
                 # region ec57
                 checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)

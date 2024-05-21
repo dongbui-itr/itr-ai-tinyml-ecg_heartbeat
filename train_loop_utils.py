@@ -682,12 +682,6 @@ def train_beat_classification(use_gpu_index,
         except:
             from_logits = False
 
-        # print("Info: {}_{}_{}_{}_{}_{}".format(feature_len,
-        #                                         len(beat_class),
-        #                                         from_logits,
-        #                                         num_filters,
-        #                                         num_loop,
-        #                                         float(_qrs_model_path[-1])))
         train_model = getattr(beat_model, func)(feature_len,
                                                 len(beat_class),
                                                 from_logits,
@@ -788,6 +782,11 @@ def train_beat_classification(use_gpu_index,
         patience=patience,
         tensorboard_dir=tensorboard_dir)
 
+    class_weights ={
+        0: 1,
+        1: 3,
+        2: 3
+    }
     with tf.device('/gpu:{}'.format(use_gpu_index if use_gpu_index >= 0 else 0)):
         train_model.fit(x=train_dataset,
                         epochs=begin_at_epoch + epoch_num,
@@ -796,6 +795,7 @@ def train_beat_classification(use_gpu_index,
                         validation_data=val_dataset,
                         validation_freq=[valid_freq * (x + 1) for x in
                                          range((begin_at_epoch + epoch_num) // valid_freq)],
+                        class_weight=class_weights,
                         initial_epoch=begin_at_epoch)
 
     bk_metric["stop_train"] = True

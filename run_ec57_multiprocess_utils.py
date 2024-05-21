@@ -28,12 +28,13 @@ from utils.reprocessing import (
     remove_short_event,
     get_beat2d,
     smooth,
-    butter_bandpass_filter)
+    butter_bandpass_filter,
+    beat_annotations)
 from wfdb.processing import resample_sig
 from collections import Counter
 from post_processing import post_processing_beats_and_rhythms
 from shutil import copyfile
-from all_config import EXT_BEAT_EVAL, MIN_RR_INTERVAL
+from all_config import EXT_BEAT_EVAL, MIN_RR_INTERVAL, DEBUG
 
 
 def bxb(predict_sample, predict_symbol, ref_sample, ref_symbol, epsilon):
@@ -1125,8 +1126,10 @@ def beat_classification(beat_model,
 
             data_len = len(buf_ecg)
             beat_label_len = beat_feature_len // beat_num_block
+            # data_index = np.arange(beat_feature_len)[None, :] + \
+            #              np.arange(0, data_len, beat_feature_len4)[:, None]
             data_index = np.arange(beat_feature_len)[None, :] + \
-                         np.arange(0, data_len, beat_feature_len)[:, None]
+                         np.arange(0, data_len - beat_feature_len, beat_feature_len - 61)[:, None]
 
             _samp_from = (samp_from * sampling_rate) // fs_origin
             _samp_to = (samp_to * sampling_rate) // fs_origin
@@ -1152,11 +1155,15 @@ def beat_classification(beat_model,
                 symbols = []
                 amps = []
                 try:
+                    k=0
                     for beat_candidate in group_beat_candidate:
+                        k+= 1
+                        a=10
                         # beat_candidate = np.asarray(beat_candidate).reshape((-1, beat_num_block))
                         for group_beat, group_bwr_buff, group_offset in zip(beat_candidate,
                                                                             group_bwr_frame,
                                                                             data_index):
+
                             _group_offset = group_offset[label_index]
                             _index = np.where(abs(np.diff(group_beat)) > 0)[0] + 1
                             _group_beat = np.split(group_beat, _index)
@@ -1225,6 +1232,7 @@ def beat_classification(beat_model,
                         beats = np.delete(beats, index_del)
                         amps = np.delete(amps, index_del)
 
+                    beats_tmp = beats.copy()
                     if len(beats) > 0:
                         min_rr = data_model.MIN_RR_INTERVAL * sampling_rate
                         group_beats, group_symbols, group_amps, group_len = beat_cluster(beats,
@@ -1237,9 +1245,14 @@ def beat_classification(beat_model,
                         for _beat, _symbol, _amp in zip(group_beats, group_symbols, group_amps):
                             qr_count = Counter(_symbol)
                             qr = qr_count.most_common(1)[0][0]
-                            symbols.append(qr)
 
                             p = np.argmax(_amp)
+                            start_samp = _beat[p] - 10 if _beat[p] - 10 > 0 else 0
+                            stop_samp = _beat[p] + 10 if _beat[p] + 10 < len(buf_bwr_ecg) else len(buf_bwr_ecg)
+                            if np.max(buf_bwr_ecg[start_samp:stop_samp]) - np.min(buf_bwr_ecg[start_samp:stop_samp]) < 0.1:
+                                continue
+
+                            symbols.append(qr)
                             amps.append(max(_amp))
                             beats.append(_beat[p])
 
@@ -1361,6 +1374,19 @@ def beat_classification(beat_model,
 
     total_beat = np.asarray(total_beat, dtype=int)
     total_symbol = np.asarray(total_symbol)
+
+    if DEBUG:
+        record = wf.rdsamp(file_name, channels=[channel_ecg])
+        buf_record = np.nan_to_num(record[0][:, 0])
+        fs_origin = record[1].get('fs')
+        ann = wf.rdann(file_name, 'atr')
+        ann_samples, ann_symbols = beat_annotations(ann)
+
+        plt.plot(buf_record)
+        plt.plot(total_beat, buf_record[total_beat], 'ro')
+        plt.plot(ann_samples, buf_record[ann_samples], 'b*')
+        plt.show()
+
     return total_beat, total_symbol, fs_origin
 
 
@@ -1490,15 +1516,15 @@ def process_beat_classification(process_index,
             log_lines.append(str_log)
             dir_test = os.path.dirname(file_name)
             if write_mit_annotation:
-                curr_dir = os.getcwd()
-                os.chdir(dir_test + '/')
+                # curr_dir = os.getcwd()
+                # os.chdir(dir_test + '/')
                 annotation2 = wf.Annotation(record_name=basename(file_name),
                                             extension=ext_ai,
                                             sample=np.asarray(total_peak),
                                             symbol=np.asarray(total_symbol),
                                             fs=fs_origin)
-                annotation2.wrann(write_fs=True)
-                os.chdir(curr_dir)
+                annotation2.wrann(write_fs=True, write_dir=dirname(file_name))
+                # os.chdir(curr_dir)
 
     return log_lines
 

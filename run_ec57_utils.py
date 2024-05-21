@@ -12,7 +12,7 @@ from utils.ec57_test import ec57_eval, del_result, bxb_eval, del_result2
 from glob import glob
 from multiprocessing import Pool
 from run_ec57_multiprocess_utils import process_beat_rhythm_classification, process_beat_classification, process_beat_classification_2
-from all_config import EXT_BEAT_EVAL
+from all_config import EXT_BEAT_EVAL, FILE_NAME
 
 
 def run_ec57(use_gpu_index,
@@ -55,8 +55,9 @@ def run_ec57(use_gpu_index,
             del_result(db[0], physionet_directory, output_ec57_directory)
             path2db = physionet_directory + db[0]
 
-            file_names = glob(path2db + '/*.dat')
-            # file_names = glob(path2db + '/100.dat')
+
+            # file_names = glob(path2db + '/*.dat')
+            file_names = glob(path2db + f'/{FILE_NAME}.dat')
             # Get rid of the extension
             file_names = [p[:-4] for p in file_names
                           if basename(p)[:-4] not in ['104', '102', '107', '217', 'bw', 'em', 'ma']

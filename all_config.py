@@ -593,3 +593,8 @@ LABEL_BEAT_TYPES = OrderedDict(
         ])),
 
     ])
+
+TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
+
+FILE_NAME = '*'
+DEBUG = False

@@ -25,7 +25,7 @@ from utils.reprocessing import (
     butter_highpass_filter,
     butter_bandpass_filter)
 from wfdb.processing import resample_sig, resample_singlechan
-from all_config import EXT_BEAT, EXT_BEAT_EVAL
+from all_config import EXT_BEAT, EXT_BEAT_EVAL, TYPES_DATA
 
 # SYS
 NUM_NORMALIZATION = 0.6
@@ -36,6 +36,7 @@ NEW_MODE = 0
 OLD_MODE = 1
 MODE = NEW_MODE
 OFFSET_FRAME_BEAT = [0, 3, 6, 9, 11]
+# OFFSET_FRAME_BEAT = [0, 3, 9, 11, 15]
 MAX_CHANNEL = 3
 ADD_ARTIFACT = True
 BAND_PASS_FILTER = [1.0, 30.0]
@@ -635,13 +636,13 @@ def _process_sample(use_gpu_index,
                         label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
                         writer=writer)
 
-        np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
-                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                        writer=writer)
-
-        np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
-                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                        writer=writer)
+        # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
+        #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+        #                 writer=writer)
+        #
+        # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
+        #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+        #                 writer=writer)
 
         # endregion PORTAL
 
@@ -1125,14 +1126,18 @@ def create_tfrecord_from_portal_event2(data_model_dir,
 
     """
     data_info = basename(dirname(data_model_dir))
-    if not os.path.exists(data_model_dir):
-        os.makedirs(data_model_dir)
-    elif not over_write and os.path.exists(data_model_dir + 'datastore.txt'):
-        print("{} exist!".format(data_model_dir + 'datastore.txt'))
-        return
-    elif over_write:
-        shutil.rmtree(data_model_dir)
-        os.makedirs(data_model_dir)
+    # if not os.path.exists(data_model_dir):
+    #     os.makedirs(data_model_dir)
+    # elif not over_write and os.path.exists(data_model_dir + 'datastore.txt'):
+    #     print("{} exist!".format(data_model_dir + 'datastore.txt'))
+    #     return
+    # elif over_write:
+    #     shutil.rmtree(data_model_dir)
+    #     os.makedirs(data_model_dir)
+    #
+    # from split_train_eval_noise import split_data_2
+    # split_data_2(data_dir=data_dir,
+    #              output_path=data_model_dir, k=0)
 
     sampling_rate = int(data_info.split('_')[0])
     feature_len = int(float(data_info.split('_')[1]) * sampling_rate)
@@ -1202,7 +1207,8 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     train_beat_type = dict()
 
     #open log_data.json
-    with open(media_dir + 'log_data_noise.json', 'r') as fp:
+    # with open(media_dir + 'log_data_noise.json', 'r') as fp:
+    with open(data_model_dir + 'log_data_noise.json', 'r') as fp:
         list_data = json.load(fp)
 
     # all_file_train = glob(data_dir + '/*/*/*.{}'.format(EXT_BEAT))
@@ -1213,18 +1219,30 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         if not 'NOTABEAT' in label:
             if label == 'N':
                 list_events = []
-                for _label in ['N', 'S', 'V', 'R', 'BRADY', 'TACHY']:
+                for _label in TYPES_DATA:
                     _list_events = np.asarray(list_data['Train'][f'{_label}_study'])
                     list_events.extend(_list_events)
+                    len_bef = len(all_file_train)
                     for studyid in _list_events:
-                        all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                        if _label in ['NOISE', 'AFIB']:
+                            all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                        else:
+                            all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+
+                    print(f'Total of {_label}: {len(all_file_train) - len_bef}')
 
             else:
-                _label = 'noise'
+                _label = 'NOISE'
                 _list_events = np.asarray(list_data['Train'][f'{_label.upper()}_study'])
                 list_events.extend(_list_events)
+                len_bef = len(all_file_train)
                 for studyid in _list_events:
-                    all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                    if _label in ['NOISE', 'AFIB']:
+                        all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                    else:
+                        all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+
+                print(f'Total of {_label}: {len(all_file_train) - len_bef}')
 
             all_train_beat_type[label] = 0
             train_beat_type[label] = 0
@@ -1280,17 +1298,29 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         if not 'NOTABEAT' in label :
             if label == 'N':
                 list_events = []
-                for _label in ['N', 'S', 'V', 'R', 'BRADY', 'TACHY']:
+                for _label in TYPES_DATA:
                     _list_events = np.asarray(list_data['Eval'][f'{_label}_study'])
                     list_events.extend(_list_events)
+                    len_bef = len(all_file_eval)
                     for studyid in _list_events:
-                        all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(label, studyid, EXT_BEAT)))
+                        if _label in ['NOISE', 'AFIB']:
+                            all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                        else:
+                            all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+
+                    print(f'Eval Total of {_label}: {len(all_file_eval) - len_bef}')
         else:
-            _label = 'noise'
+            _label = 'NOISE'
             _list_events = np.asarray(list_data['Eval'][f'{_label.upper()}_study'])
             list_events.extend(_list_events)
+            len_bef = len(all_file_eval)
             for studyid in _list_events:
-                all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                if _label in ['NOISE', 'AFIB']:
+                    all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+                else:
+                    all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+
+            print(f'Eval Total of {_label}: {len(all_file_eval) - len_bef}')
 
         all_eval_beat_type[label] = 0
         eval_beat_type[label] = 0
