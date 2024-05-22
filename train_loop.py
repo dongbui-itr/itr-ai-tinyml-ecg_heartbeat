@@ -52,7 +52,7 @@ def train():
     # percent_train
 
     DATA = [
-        '128_05_20_0_0_0_5_0_0.99',
+        '128_05_40_0_0_0_5_0_0.99',
     ]
     BATCH_SIZE_TRAINING = [
         128,

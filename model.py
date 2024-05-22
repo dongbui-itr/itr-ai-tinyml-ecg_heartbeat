@@ -2179,25 +2179,26 @@ def beat_concat_seq_add_more2_128Hz(feature_len,
     #     # x = tf.concat((bbxx, bxx, xx, x, yy, ayy, aayy), axis=2)
 
     x = conv1d_net(x=x,
-                   num_filters=x.shape[-1],
+                   num_filters=num_of_class,
                    kernel_size=4,
-                   strides=2,
+                   strides=1,
                    pad='SAME',
                    act=False,
                    bn=False,
                    rate=1.0,
                    name="last_conv")
 
-    logits_layer1 = keras.layers.Dense(num_of_class)(x)
-    lstm_layer = keras.layers.Bidirectional(
-        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = keras.layers.Bidirectional(
-        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    # logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    # lstm_layer = keras.layers.Bidirectional(
+    #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    # lstm_layer = keras.layers.Bidirectional(
+    #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
 
-    logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
+    # logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
-    logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
-    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
+    # logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    # softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1)(x)
 
     if not from_logits:
         return keras.Model(input_layer, softmax_layer, name=name)

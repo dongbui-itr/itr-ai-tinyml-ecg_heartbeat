@@ -1126,18 +1126,18 @@ def create_tfrecord_from_portal_event2(data_model_dir,
 
     """
     data_info = basename(dirname(data_model_dir))
-    # if not os.path.exists(data_model_dir):
-    #     os.makedirs(data_model_dir)
-    # elif not over_write and os.path.exists(data_model_dir + 'datastore.txt'):
-    #     print("{} exist!".format(data_model_dir + 'datastore.txt'))
-    #     return
-    # elif over_write:
-    #     shutil.rmtree(data_model_dir)
-    #     os.makedirs(data_model_dir)
-    #
-    # from split_train_eval_noise import split_data_2
-    # split_data_2(data_dir=data_dir,
-    #              output_path=data_model_dir, k=0)
+    if not os.path.exists(data_model_dir):
+        os.makedirs(data_model_dir)
+    elif not over_write and os.path.exists(data_model_dir + 'datastore.txt'):
+        print("{} exist!".format(data_model_dir + 'datastore.txt'))
+        return
+    elif over_write:
+        shutil.rmtree(data_model_dir)
+        os.makedirs(data_model_dir)
+
+    from split_train_eval_noise import split_data_2
+    split_data_2(data_dir=data_dir,
+                 output_path=data_model_dir, k=0)
 
     sampling_rate = int(data_info.split('_')[0])
     feature_len = int(float(data_info.split('_')[1]) * sampling_rate)
