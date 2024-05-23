@@ -37,8 +37,8 @@ def train():
     DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
         ['nstdb', 'atr', 'atr'],
-        # ['ahadb', 'atr', 'atr'],
-        # ['escdb', 'atr', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
     ]
 
     # sampling_rate

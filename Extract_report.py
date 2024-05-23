@@ -5,7 +5,7 @@ from glob import glob
 
 
 def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', sampling_rate='128'):
-    dbs = ['mitdb', 'nstdb']
+    dbs = ['mitdb', 'nstdb', 'ahadb', 'escdb', 'afdb']
     # for db in dbs:
     list_ec57 = np.sort(np.asarray(glob(data_path + '/*_c*/*/*/*/*/{}_*_line.out'.format('*'))))
 
@@ -38,14 +38,29 @@ def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data
                 tmp = line.split(' ')
                 tmp_dict[ckt][db]['Se'] = tmp[1]
                 tmp_dict[ckt][db]['P+'] = tmp[2]
-
+    list_key = []
     for key in list(tmp_dict.keys()):
         line = '{}'.format(key)
+        flag = True
         for db in dbs:
-            line += ', {}, {}'.format(tmp_dict[key][db]['Se'], tmp_dict[key][db]['P+'])
+            if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 99 or float(tmp_dict[key][db]['P+']) <= 99)) or \
+                    (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 88)):
+                flag = False
+                break
+            try:
+                line += ', {}, {}'.format(tmp_dict[key][db]['Se'], tmp_dict[key][db]['P+'])
+                tmp = key.split('_')[-1]
+                tmp = tmp.replace('c', '')
+                if not tmp in list_key:
+                    list_key.append(tmp)
+            except Exception as err:
+                line += ', {}, {}'.format('-', '-')
 
         line += '\n'
-        excel_file.writelines(line)
+        if flag:
+            excel_file.writelines(line)
+
+    print(list_key)
 
     excel_file.close()
     a=10

@@ -1474,13 +1474,13 @@ def process_beat_classification(process_index,
                                               num_loop,
                                               0.5,
                                               False)
-            beat_model.summary()
+            # beat_model.summary()
             import glob
-            checkpoint_dir = glob.glob(checkpoint_dir + '/*.h5')[0]
+            checkpoint = glob.glob(checkpoint_dir + '/*.h5')[0]
             # beat_model = keras.models.load_model(ckt)
 
         # beat_model.load_weights(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
-        beat_model.load_weights(checkpoint_dir)
+        beat_model.load_weights(checkpoint)
     else:
         return ""
 
