@@ -11,32 +11,35 @@ import numpy as np
 import multiprocessing
 from distutils.dir_util import copy_tree
 from datetime import datetime
-from all_config import DB_TESTING, PATH_DATA_EC57
 
 import copy
 
 def train():
-    MAX_EPOCH = 100
+    MAX_EPOCH = 50
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
-    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
-    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV_2/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
-    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240529') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240524') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
-    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_rm/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
+
 
     # sl.split_data(MEDIA_PATH)
 
-    PATH_DATA_TRAINING = PATH_DATA_EC57
+    PATH_DATA_TRAINING = '/mnt/Dataset//ECG/PhysionetData/'
+    DB_TESTING = [
+        ['mitdb', 'atr', 'atr'],
+        ['nstdb', 'atr', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
+    ]
 
     # sampling_rate
     # feature_len
@@ -49,10 +52,10 @@ def train():
     # percent_train
 
     DATA = [
-        '128_05_40_0_0_0_6_0_0.99',
+        '128_05_40_0_0_0_5_0_0.99',
     ]
     BATCH_SIZE_TRAINING = [
-        64,
+        128,
     ]
 
     MODEL = [
@@ -79,7 +82,6 @@ def train():
         pt_bk = copy.copy(pt)
         flag_reset_data = False
         while try_on_with_dataset < num_try_on_with_dataset:
-        # while count < 4:
             count += 1
             # sl.split_data_2(DATA_SOURCE, MEDIA_PATH, count)
             # pt = pt + '_d{}_c{}'.format(k, count)
@@ -217,11 +219,11 @@ def train():
                              output_ec57_directory=output_ec57_directory,
                              physionet_directory=PATH_DATA_TRAINING,
                              overlap=5,
-                             num_of_process=3)
+                             num_of_process=8)
 
                     # endregion
                     # region check
-                    num_class = len(list((data_model.LABEL_BEAT_TYPES[int(pt.split('_')[6])]).keys()))
+                    num_class = 3
                     squared_error_gross = 0
                     squared_error_average = 0
                     for f in DB_TESTING:

@@ -2188,22 +2188,26 @@ def beat_concat_seq_add_more2_128Hz(feature_len,
                    rate=1.0,
                    name="last_conv")
 
+    logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer1)
+    return keras.Model(input_layer, softmax_layer, name=name)
+
     # logits_layer1 = keras.layers.Dense(num_of_class)(x)
     # lstm_layer = keras.layers.Bidirectional(
     #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
     # lstm_layer = keras.layers.Bidirectional(
     #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-
+    #
     # logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
-
+    #
     # logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
     # softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
-    softmax_layer = keras.layers.Softmax(axis=-1)(x)
+    #
+    # if not from_logits:
+    #     return keras.Model(input_layer, softmax_layer, name=name)
+    # else:
+    #     return keras.Model(input_layer, logits_layer, name=name)
 
-    if not from_logits:
-        return keras.Model(input_layer, softmax_layer, name=name)
-    else:
-        return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_concat_sequeeze_add_more2_128Hz(feature_len,
@@ -2329,13 +2333,15 @@ def beat_concat_sequeeze_add_more2_128Hz(feature_len,
     logits_layer1 = keras.layers.Dense(num_of_class)(x)
     lstm_layer = keras.layers.Bidirectional(
         keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
-    lstm_layer = keras.layers.Bidirectional(
-        keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
-
+    # lstm_layer = keras.layers.Bidirectional(
+    #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    #
     logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
 
     logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
     softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
+
+    # softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer1)
 
     if not from_logits:
         return keras.Model(input_layer, softmax_layer, name=name)
@@ -2445,9 +2451,9 @@ def test_model():
     #                               num_of_class=num_of_class)
     model = beat_concat_seq_add_more2_128Hz(feature_len=640,
                                             # model = beat_concat_sequeeze_add_more2_128Hz(feature_len=640,
-                                            num_of_class=3,
+                                            num_of_class=5,
                                             from_logits=False,
-                                            filters_rhythm_net=[4, 8, 16],
+                                            filters_rhythm_net=[8, 16, 32],
                                             num_loop=3,
                                             rate=0.5,
                                             name='beat_concat_seq_add_more2_other')

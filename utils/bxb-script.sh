@@ -7,7 +7,7 @@ EXT_AI=$4
 OUTPUT_NAME=$5
 OUTPUT_NAME2=$6
 
-OUTPUT="bxb"
+OUTPUT="b"
 cd $DB_PATH
 echo "$DB_PATH"
 for entry in *."$EXT_AI" ; do

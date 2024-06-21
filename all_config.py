@@ -595,6 +595,27 @@ LABEL_BEAT_TYPES = OrderedDict(
     ])
 
 TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
+# TYPES_DATA = ['V']
+
+CLASS_TYPES = ['N', 'V', 'S']
+
+CLASS_WEIGHTS = {
+        0: 1,
+        1: 1,
+        2: 2,
+        3: 4,
+        4: 1
+    }
+
+OVERLAB_IN_FILE = 3
+
+PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
+DB_TESTING = [
+        ['mitdb', 'atr', 'atr'],
+        ['nstdb', 'atr', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
+    ]
 
 FILE_NAME = '*'
 DEBUG = False

@@ -17,6 +17,7 @@ import numpy as np
 import model as beat_model
 import inputs as dat_model
 from utils.logging import TextLogging
+from all_config import CLASS_WEIGHTS, PATH_DATA_EC57, FILE_NAME
 
 import keras
 
@@ -156,11 +157,11 @@ def train_beat_classification(use_gpu_index,
     os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(use_gpu_index)
     import tensorflow as tf
     import logging
-    from tensorflow.python.autograph.core import ag_ctx
-    from tensorflow.python.autograph.impl import api as autograph
-    from tensorflow.python.keras.utils import losses_utils
-    from tensorflow.python.keras.utils import metrics_utils
-    from tensorflow.python.ops import math_ops
+    # from tensorflow.python.autograph.core import ag_ctx
+    # from tensorflow.python.autograph.impl import api as autograph
+    # from tensorflow.python.keras.utils import losses_utils
+    # from tensorflow.python.keras.utils import metrics_utils
+    # from tensorflow.python.ops import math_ops
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     tf.get_logger().setLevel(logging.ERROR)
     tf.autograph.set_verbosity(1)
@@ -598,31 +599,31 @@ def train_beat_classification(use_gpu_index,
         def get_config(self):
             return super(CustomPrecision, self).get_config()
 
-    class CustomMeanMetricWrapper(keras.metrics.Mean):
+    # class CustomMeanMetricWrapper(keras.metrics.Mean):
+    #
+    #     def __init__(self, fn, name=None, dtype=None, **kwargs):
+    #         super(CustomMeanMetricWrapper, self).__init__(name=name, dtype=dtype)
+    #         self._fn = fn
+    #         self._fn_kwargs = kwargs
+    #
+    #     def update_state(self, y_true, y_pred, sample_weight=None):
+    #         y_pred = tf.nn.softmax(y_pred, axis=-1)
+    #         y_true = math_ops.cast(y_true, self._dtype)
+    #         y_pred = math_ops.cast(y_pred, self._dtype)
+    #         [y_true, y_pred], sample_weight = \
+    #             metrics_utils.ragged_assert_compatible_and_get_flat_values(
+    #                 [y_true, y_pred], sample_weight)
+    #         y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(y_pred, y_true)
+    #
+    #         ag_fn = autograph.tf_convert(self._fn, ag_ctx.control_status_ctx())
+    #         matches = ag_fn(y_true, y_pred, **self._fn_kwargs)
+    #         return super(CustomMeanMetricWrapper, self).update_state(matches,
+    #                                                                  sample_weight=sample_weight)
 
-        def __init__(self, fn, name=None, dtype=None, **kwargs):
-            super(CustomMeanMetricWrapper, self).__init__(name=name, dtype=dtype)
-            self._fn = fn
-            self._fn_kwargs = kwargs
-
-        def update_state(self, y_true, y_pred, sample_weight=None):
-            y_pred = tf.nn.softmax(y_pred, axis=-1)
-            y_true = math_ops.cast(y_true, self._dtype)
-            y_pred = math_ops.cast(y_pred, self._dtype)
-            [y_true, y_pred], sample_weight = \
-                metrics_utils.ragged_assert_compatible_and_get_flat_values(
-                    [y_true, y_pred], sample_weight)
-            y_pred, y_true = losses_utils.squeeze_or_expand_dimensions(y_pred, y_true)
-
-            ag_fn = autograph.tf_convert(self._fn, ag_ctx.control_status_ctx())
-            matches = ag_fn(y_true, y_pred, **self._fn_kwargs)
-            return super(CustomMeanMetricWrapper, self).update_state(matches,
-                                                                     sample_weight=sample_weight)
-
-    class CustomCategoricalAccuracy(CustomMeanMetricWrapper):
-        def __init__(self, name='categorical_accuracy', dtype=None):
-            super(CustomCategoricalAccuracy, self).__init__(
-                keras.metrics.categorical_accuracy, name, dtype=dtype)
+    # class CustomCategoricalAccuracy(CustomMeanMetricWrapper):
+    #     def __init__(self, name='categorical_accuracy', dtype=None):
+    #         super(CustomCategoricalAccuracy, self).__init__(
+    #             keras.metrics.categorical_accuracy, name, dtype=dtype)
 
     def _preprocess_proto(example_proto, feature_len, label_len, class_num):
         """Read sample from protocol buffer."""
@@ -704,7 +705,7 @@ def train_beat_classification(use_gpu_index,
             ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
             CustomRecall(name='recall'),
             CustomPrecision(name='precision'),
-            CustomCategoricalAccuracy(name='accuracy')
+            # CustomCategoricalAccuracy(name='accuracy')
         ]
         beat = [c for _, c in enumerate(beat_class.keys())]
         for i in range(len(beat_class)):
@@ -782,21 +783,73 @@ def train_beat_classification(use_gpu_index,
         patience=patience,
         tensorboard_dir=tensorboard_dir)
 
-    class_weights ={
-        0: 1,
-        1: 3,
-        2: 3
-    }
     with tf.device('/gpu:{}'.format(use_gpu_index if use_gpu_index >= 0 else 0)):
-        train_model.fit(x=train_dataset,
-                        epochs=begin_at_epoch + epoch_num,
-                        verbose=0,
-                        callbacks=[log_callback], # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
-                        validation_data=val_dataset,
-                        validation_freq=[valid_freq * (x + 1) for x in
-                                         range((begin_at_epoch + epoch_num) // valid_freq)],
-                        class_weight=class_weights,
-                        initial_epoch=begin_at_epoch)
+        # for i_epoch_num in range(epoch_num):
+            train_model.fit(x=train_dataset,
+                            # epochs=begin_at_epoch + i_epoch_num + 1,
+                            epochs=begin_at_epoch + epoch_num,
+                            verbose=0,
+                            callbacks=[log_callback], # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
+                            validation_data=val_dataset,
+                            validation_freq=[valid_freq * (x + 1) for x in
+                                             range((begin_at_epoch + epoch_num) // valid_freq)],
+                            class_weight=CLASS_WEIGHTS,
+                            initial_epoch=begin_at_epoch)
+            # begin_at_epoch = begin_at_epoch + i_epoch_num
+            #
+            # if i_epoch_num % 4 == 0:
+            #     from run_ec57_utils import run_ec57
+            #     from all_config import DB_TESTING as test_ec57_dir
+            #     from multiprocessing import Pool
+            #     from os.path import basename, dirname
+            #     from utils.ec57_test import ec57_eval, del_result, bxb_eval, del_result2, ec57_eval_event
+            #     from run_ec57_multiprocess_utils import process_beat_classification
+            #
+            #     import time
+            #
+            #     ext_ai = 'tmpatr'
+            #     for db in test_ec57_dir:
+            #         path2db = PATH_DATA_EC57 + db[0]
+            #         # file_names = glob(path2db + '/*.dat')
+            #         file_names = glob(path2db + f'/{FILE_NAME}.dat')
+            #         # Get rid of the extension
+            #         file_names = [p[:-4] for p in file_names
+            #                       if basename(p)[:-4] not in ['104', '102', '107', '217', 'bw', 'em', 'ma']
+            #                       if '_200hz' not in basename(p)[:-4]]
+            #
+            #         file_names = sorted(file_names)
+            #
+            #         num_file_each_process = int(len(file_names) / num_of_process)
+            #         while num_file_each_process == 0:
+            #             num_of_process -= 1
+            #             num_file_each_process = int(len(file_names) / num_of_process)
+            #
+            #         file_process_split = [file_names[x:x + num_file_each_process] for x in range(0, len(file_names),
+            #                                                                                      num_file_each_process)]
+            #         arg_list = list()
+            #         for i, file_list in enumerate(file_process_split):
+            #             arg = (i,
+            #                    use_gpu_index,
+            #                    file_list,
+            #                    model_name,
+            #                    '', #checkpoint_dir,
+            #                    datastore_dict,
+            #                    ext_ai,
+            #                    True,
+            #                    False,
+            #                    0,
+            #                    0, #overlap,
+            #                    1024,
+            #                    None, #dir_image,
+            #                    True )
+            #
+            #             arg_list.append(arg)
+            #
+            #         num_of_process = 4
+            #         with Pool(processes=num_of_process) as pool:
+            #             # print same numbers in arbitrary order
+            #             for log_lines in pool.starmap(process_beat_classification, arg_list):
+            #                 continue
 
     bk_metric["stop_train"] = True
     bk_metric_file = open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'w')

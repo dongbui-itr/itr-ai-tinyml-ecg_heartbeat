@@ -3,18 +3,17 @@ import os
 
 from glob import glob
 
-
-def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', sampling_rate='128'):
+def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/240527_NSV_2/', sampling_rate='128'):
     dbs = ['mitdb', 'nstdb', 'ahadb', 'escdb', 'afdb']
     # for db in dbs:
     list_ec57 = np.sort(np.asarray(glob(data_path + '/*_c*/*/*/*/*/{}_*_line.out'.format('*'))))
 
-    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat/Report/{}.csv'.format('result')
+    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240529_NSV.csv'.format('result')
     excel_file = open(excel_file_path, 'w')
 
     line = 'CKT_name'
     for db in dbs:
-        line += ', {}_Se, {}_P+'.format(db, db)
+        line += ', {}_Se, {}_P+, {}_VSe, {}_VP+, {}_SSe, {}_SP+'.format(db, db, db, db, db, db)
 
     excel_file.writelines(line + '\n')
 
@@ -38,17 +37,26 @@ def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data
                 tmp = line.split(' ')
                 tmp_dict[ckt][db]['Se'] = tmp[1]
                 tmp_dict[ckt][db]['P+'] = tmp[2]
+                tmp_dict[ckt][db]['VSe'] = tmp[3]
+                tmp_dict[ckt][db]['VP+'] = tmp[4]
+                tmp_dict[ckt][db]['SSe'] = tmp[5]
+                tmp_dict[ckt][db]['SP+'] = tmp[6]
+
     list_key = []
     for key in list(tmp_dict.keys()):
         line = '{}'.format(key)
         flag = True
         for db in dbs:
-            if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 99 or float(tmp_dict[key][db]['P+']) <= 99)) or \
-                    (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 88)):
+            # if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 98.5 or float(tmp_dict[key][db]['P+']) <= 99)) or \
+            #         (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 88)):
+            if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 98 or float(tmp_dict[key][db]['P+']) <= 98.5)) or \
+                    (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 75)):
                 flag = False
                 break
             try:
                 line += ', {}, {}'.format(tmp_dict[key][db]['Se'], tmp_dict[key][db]['P+'])
+                line += ', {}, {}'.format(tmp_dict[key][db]['VSe'], tmp_dict[key][db]['VP+'])
+                line += ', {}, {}'.format(tmp_dict[key][db]['SSe'], tmp_dict[key][db]['SP+'])
                 tmp = key.split('_')[-1]
                 tmp = tmp.replace('c', '')
                 if not tmp in list_key:

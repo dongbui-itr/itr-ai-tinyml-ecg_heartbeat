@@ -21,6 +21,9 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
 
     # types = ['S', 'V', 'R', 'N']
     types = ['N', 'S', 'V', 'IVCD', 'IVCD-SE', 'IVCD-VE', 'TACHY', 'BRADY', 'NOISE', 'AFIB']
+    # types = ['N', 'S', 'V', 'IVCD', 'TACHY', 'BRADY', 'NOISE', 'AFIB'] #Best model 240527
+    # types = ['N', 'S', 'V', 'IVCD', 'IVCD-SE', 'IVCD-VE', 'TACHY', 'BRADY', 'AFIB']
+    # types = ['V']
     # types = ['BRADY', 'noise']
     # types = ['TACHY', 'BRADY']
 
@@ -43,7 +46,6 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
             studies_path = glob(data_path + '/*')
 
         print('Number of {} files: {}'.format(type, len(studies_path)))
-        a = 10
         for i in types:
             if 'IVCD' in i:
                 i = 'R'
@@ -70,6 +72,7 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
 
                 # statictis_type[type]['total_{}'.format(i)] = 0
                 statictis_type[type][study_id]['total_{}'.format(i)] = 0
+                statictis_type[type][study_id]['path'] = study
 
             # events_id = glob(study + '/*')/
             events_id = [study]
@@ -85,10 +88,6 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
                     for key in symbol_statictis.keys():
                         if 'NOISE' in file:
                             key = 'Q'
-                        # if 'Q' in key:
-                        #     statictis_type[type][study_id]['total_{}'.format('N')] += symbol_statictis[key]
-                        #     statictis_type[type]['total_{}'.format('N')] += symbol_statictis[key]
-                        # else:
                         statictis_type[type][study_id]['total_{}'.format(key)] += symbol_statictis[key]
                         statictis_type[type]['total_{}'.format(key)] += symbol_statictis[key]
 
@@ -180,6 +179,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['S']['Total_N_in_S_study'] = N_in_S_study
     statictis_type['Train']['S']['Total_Q_in_S_study'] = N_in_S_study
     statictis_type['Train']['S_study'] = list_S_studies[:limit_train_S]
+    statictis_type['Train']['S_study_path'] = []
+    [statictis_type['Train']['S_study_path'].append(statictis_type['S'][i]['path']) for i in list_S_studies[:limit_train_S]]
 
     S_in_S_study = 0
     V_in_S_study = 0
@@ -206,6 +207,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['S']['Total_N_in_S_study'] = N_in_S_study
     statictis_type['Eval']['S']['Total_Q_in_S_study'] = N_in_S_study
     statictis_type['Eval']['S_study'] = list_S_studies[:limit_eval_S]
+    statictis_type['Eval']['S_study_path'] = []
+    [statictis_type['Eval']['S_study_path'].append(statictis_type['S'][i]['path']) for i in list_S_studies[limit_train_S:]]
 
     ### V Region ###
     times = 0
@@ -260,6 +263,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['V']['Total_N_in_V_study'] = N_in_V_study
     statictis_type['Train']['V']['Total_Q_in_V_study'] = N_in_V_study
     statictis_type['Train']['V_study'] = list_V_studies_train
+    statictis_type['Train']['V_study_path'] = []
+    [statictis_type['Train']['V_study_path'].append(statictis_type['V'][i]['path']) for i in list_V_studies[:limit_train_V]]
 
     S_in_V_study = 0
     V_in_V_study = 0
@@ -285,6 +290,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['V']['Total_N_in_V_study'] = N_in_V_study
     statictis_type['Eval']['V']['Total_Q_in_V_study'] = N_in_V_study
     statictis_type['Eval']['V_study'] = list_V_studies_eval
+    statictis_type['Eval']['V_study_path'] = []
+    [statictis_type['Eval']['V_study_path'].append(statictis_type['V'][i]['path']) for i in list_V_studies[limit_train_V:]]
 
     ### R Region ###
     times = 0
@@ -340,6 +347,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['R']['Total_N_in_R_study'] = N_in_R_study
     statictis_type['Train']['R']['Total_Q_in_R_study'] = N_in_R_study
     statictis_type['Train']['R_study'] = list_R_studies_train
+    statictis_type['Train']['R_study_path'] = []
+    [statictis_type['Train']['R_study_path'].append(statictis_type['R'][i]['path']) for i in list_R_studies[:limit_train_R]]
 
     # times = 0
     # list_R_studies = list_R_studies[limit_train_R:]
@@ -371,6 +380,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['R']['Total_N_in_R_study'] = N_in_R_study
     statictis_type['Eval']['R']['Total_Q_in_R_study'] = Q_in_R_study
     statictis_type['Eval']['R_study'] = list_R_studies_eval
+    statictis_type['Eval']['R_study_path'] = []
+    [statictis_type['Eval']['R_study_path'].append(statictis_type['R'][i]['path']) for i in list_R_studies[limit_train_R:]]
 
     ### N Region ###
     times = 0
@@ -427,6 +438,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['N']['Total_N_in_N_study'] = N_in_N_study
     statictis_type['Train']['N']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Train']['N_study'] = list_N_studies_train
+    statictis_type['Train']['N_study_path'] = []
+    [statictis_type['Train']['N_study_path'].append(statictis_type['N'][i]['path']) for i in list_N_studies[:limit_train_N]]
 
     # times = 0
     # list_N_studies_eval = list_N_studies[limit_train_N:]
@@ -458,6 +471,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['N']['Total_N_in_N_study'] = N_in_N_study
     statictis_type['Eval']['N']['Total_Q_in_N_study'] = Q_in_N_study
     statictis_type['Eval']['N_study'] = list_N_studies_eval
+    statictis_type['Eval']['N_study_path'] = []
+    [statictis_type['Eval']['N_study_path'].append(statictis_type['N'][i]['path']) for i in list_N_studies[limit_train_N:]]
 
     ### BRADY Region ###
     times = 0
@@ -513,6 +528,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['BRADY']['Total_N_in_BRADY_study'] = N_in_BRADY_study
     statictis_type['Train']['BRADY']['Total_Q_in_BRADY_study'] = Q_in_BRADY_study
     statictis_type['Train']['BRADY_study'] = list_BRADY_studies_train
+    statictis_type['Train']['BRADY_study_path'] = []
+    [statictis_type['Train']['BRADY_study_path'].append(statictis_type['BRADY'][i]['path']) for i in list_BRADY_studies[:limit_train_BRADY]]
 
     S_in_BRADY_study = 0
     V_in_BRADY_study = 0
@@ -537,6 +554,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['BRADY']['Total_N_in_BRADY_study'] = N_in_BRADY_study
     statictis_type['Eval']['BRADY']['Total_Q_in_BRADY_study'] = Q_in_BRADY_study
     statictis_type['Eval']['BRADY_study'] = list_BRADY_studies_eval
+    statictis_type['Eval']['BRADY_study_path'] = []
+    [statictis_type['Eval']['BRADY_study_path'].append(statictis_type['BRADY'][i]['path']) for i in list_BRADY_studies[limit_train_BRADY:]]
 
     ### TACHY Region ###
     times = 0
@@ -590,6 +609,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['TACHY']['Total_N_in_TACHY_study'] = N_in_TACHY_study
     statictis_type['Train']['TACHY']['Total_Q_in_TACHY_study'] = Q_in_TACHY_study
     statictis_type['Train']['TACHY_study'] = list_TACHY_studies_train
+    statictis_type['Train']['TACHY_study_path'] = []
+    [statictis_type['Train']['TACHY_study_path'].append(statictis_type['TACHY'][i]['path']) for i in list_TACHY_studies[:limit_train_TACHY]]
 
     S_in_TACHY_study = 0
     V_in_TACHY_study = 0
@@ -615,6 +636,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['TACHY']['Total_N_in_TACHY_study'] = N_in_TACHY_study
     statictis_type['Eval']['TACHY']['Total_Q_in_TACHY_study'] = Q_in_TACHY_study
     statictis_type['Eval']['TACHY_study'] = list_TACHY_studies_eval
+    statictis_type['Eval']['TACHY_study_path'] = []
+    [statictis_type['Eval']['TACHY_study_path'].append(statictis_type['TACHY'][i]['path']) for i in list_TACHY_studies[limit_train_TACHY:]]
 
     ### NOISE Region ###
     times = 0
@@ -670,7 +693,9 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['Q']['Total_R_in_Q_study'] = R_in_Q_study
     statictis_type['Train']['Q']['Total_N_in_Q_study'] = N_in_Q_study
     statictis_type['Train']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
-    statictis_type['Train']['NOISE_study'] = list_NOISE_studies_train
+    statictis_type['Train']['Q_study'] = list_NOISE_studies_train
+    statictis_type['Train']['Q_study_path'] = []
+    [statictis_type['Train']['Q_study_path'].append(statictis_type['Q'][i]['path']) for i in list_NOISE_studies[:limit_train_NOISE]]
 
     # times = 0
     # list_NOISE_studies = list_NOISE_studies[limit_train_NOISE:]
@@ -701,7 +726,9 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['Q']['Total_R_in_Q_study'] = R_in_Q_study
     statictis_type['Eval']['Q']['Total_N_in_Q_study'] = N_in_Q_study
     statictis_type['Eval']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
-    statictis_type['Eval']['NOISE_study'] = list_NOISE_studies_eval
+    statictis_type['Eval']['Q_study'] = list_NOISE_studies_eval
+    statictis_type['Eval']['Q_study_path'] = []
+    [statictis_type['Eval']['Q_study_path'].append(statictis_type['Q'][i]['path']) for i in list_NOISE_studies[limit_train_NOISE:]]
 
     ### AFIB Region ###
     times = 0
@@ -758,6 +785,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Train']['AFIB']['Total_N_in_AFIB_study'] = N_in_AFIB_study
     statictis_type['Train']['AFIB']['Total_Q_in_AFIB_study'] = Q_in_AFIB_study
     statictis_type['Train']['AFIB_study'] = list_AFIB_studies_train
+    statictis_type['Train']['AFIB_study_path'] = []
+    [statictis_type['Train']['AFIB_study_path'].append(statictis_type['AFIB'][i]['path']) for i in list_AFIB_studies[:limit_train_AFIB]]
 
     # times = 0
     # list_AFIB_studies = list_AFIB_studies[limit_train_AFIB:]
@@ -789,6 +818,8 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
     statictis_type['Eval']['AFIB']['Total_N_in_AFIB_study'] = N_in_AFIB_study
     statictis_type['Eval']['AFIB']['Total_Q_in_AFIB_study'] = Q_in_AFIB_study
     statictis_type['Eval']['AFIB_study'] = list_AFIB_studies_eval
+    statictis_type['Eval']['AFIB_study_path'] = []
+    [statictis_type['Eval']['AFIB_study_path'].append(statictis_type['AFIB'][i]['path']) for i in list_AFIB_studies[limit_train_AFIB:]]
 
     statictis_type['Total_train_N'] = final_total_train_N
     statictis_type['Total_train_V'] = final_total_train_V
@@ -805,18 +836,18 @@ def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_port
 
     statictis_type['ratio_train_eval_test'] = [8, 2]
 
-    print('Train: N {}, V {}, R {}, S {}, Q {}\nEval: N {}, V {}, R {}, S {}, Q {}'.format(
-        statictis_type['Total_train_N'],
-        statictis_type['Total_train_V'],
-        statictis_type['Total_train_R'],
-        statictis_type['Total_train_S'],
-        statictis_type['Total_train_Q'],
-        statictis_type['Total_eval_N'],
-        statictis_type['Total_eval_V'],
-        statictis_type['Total_eval_R'],
-        statictis_type['Total_eval_S'],
-        statictis_type['Total_eval_Q'],
-        ))
+    # print('Train: N {}, V {}, R {}, S {}, Q {}\nEval: N {}, V {}, R {}, S {}, Q {}'.format(
+    #     statictis_type['Total_train_N'],
+    #     statictis_type['Total_train_V'],
+    #     statictis_type['Total_train_R'],
+    #     statictis_type['Total_train_S'],
+    #     statictis_type['Total_train_Q'],
+    #     statictis_type['Total_eval_N'],
+    #     statictis_type['Total_eval_V'],
+    #     statictis_type['Total_eval_R'],
+    #     statictis_type['Total_eval_S'],
+    #     statictis_type['Total_eval_Q'],
+    #     ))
 
     fp = open(output_path + 'log_data_noise.json', 'w')
     fp.write(json.dumps(statictis_type, indent=4))
