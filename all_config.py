@@ -600,10 +600,10 @@ TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 CLASS_TYPES = ['N', 'V', 'S']
 
 CLASS_WEIGHTS = {
-        0: 1,
-        1: 1,
+        0: 0.5,
+        1: 2,
         2: 2,
-        3: 4,
+        3: 6,
         4: 1
     }
 
