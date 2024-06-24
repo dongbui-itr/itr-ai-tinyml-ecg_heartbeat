@@ -21,7 +21,7 @@ def train():
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240520') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240524') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
@@ -35,11 +35,10 @@ def train():
 
     PATH_DATA_TRAINING = '/mnt/Dataset//ECG/PhysionetData/'
     DB_TESTING = [
-        # ['mitdb', 'atr', 'atr'],
-        # ['nstdb', 'atr', 'atr'],
-        # ['ahadb', 'atr', 'atr'],
-        # ['escdb', 'atr', 'atr'],
-        ['afdb', 'qrs', 'atr'],
+        ['mitdb', 'atr', 'atr'],
+        ['nstdb', 'atr', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
     ]
 
     # sampling_rate
@@ -79,23 +78,15 @@ def train():
         num_try_on_with_dataset = 1
         try_on_with_dataset = 0
         squared_error_gross_ec57 = THR
-        count = 1
+        count = 0
         pt_bk = copy.copy(pt)
         flag_reset_data = False
-        # while try_on_with_dataset < num_try_on_with_dataset:
-        # c_in = ['100', '105', '11', '110', '115', '116', '117', '123', '124', '129', '133', '137', '14', '146', '17', '21', '22', '23', '26', '27', '30', '37', '41', '45', '48', '4a', '52', '56', '58',  '60',  '75', '77', '87', '98']
-        c_in = ['4']
-        while count < 156:
+        while try_on_with_dataset < num_try_on_with_dataset:
             count += 1
-            if not str(count) in c_in:
-                continue
-
             # sl.split_data_2(DATA_SOURCE, MEDIA_PATH, count)
             # pt = pt + '_d{}_c{}'.format(k, count)
             pt = copy.copy(pt_bk)
-            pt = pt + '_c{}a'.format(count)
-            # pt = pt + '_c{}'.format(100)
-            # count=100
+            pt = pt + '_c{}'.format(count)
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {} try on {} get {} "
                   "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<".format(pt, count, try_on_with_dataset))
             # region random create data_input
@@ -122,61 +113,61 @@ def train():
             output_dir = MEDIA_PATH + '/' + pt + '/output'
             train_directory = MEDIA_PATH + '/' + pt + '/train'
             eval_directory = MEDIA_PATH + '/' + pt + '/eval'
-            # if os.path.exists(datastore_file):
-            #     if os.path.exists(train_directory):
-            #         shutil.rmtree(train_directory)
-            #
-            #     if os.path.exists(eval_directory):
-            #         shutil.rmtree(eval_directory)
-            #
-            #     if os.path.exists(output_dir):
-            #         shutil.rmtree(output_dir)
-            #
-            #     if os.path.exists(datastore_file):
-            #         os.remove(datastore_file)
-            #
-            #     if os.path.exists(ds_eval_file):
-            #         os.remove(ds_eval_file)
-            #
-            #     if os.path.exists(ds_train_file):
-            #         os.remove(ds_train_file)
-            #
-            #     if os.path.exists(ds_study_eval):
-            #         os.remove(ds_study_eval)
-            #
-            #     if os.path.exists(ds_study_train):
-            #         os.remove(ds_study_train)
-            #
-            #     if os.path.exists(ds_study_info):
-            #         os.remove(ds_study_info)
-            #
-            #     if os.path.exists(ds_train_study_info):
-            #         os.remove(ds_train_study_info)
-            #
-            #     if os.path.exists(ds_eval_study_info):
-            #         os.remove(ds_eval_study_info)
-            #
-            #     if os.path.exists(all_beat_type):
-            #         os.remove(all_beat_type)
-            #
-            #     if os.path.exists(all_train_beat_type):
-            #         os.remove(all_train_beat_type)
-            #
-            #     if os.path.exists(all_eval_beat_type):
-            #         os.remove(all_eval_beat_type)
-            #
-            #     if os.path.exists(train_beat_type):
-            #         os.remove(train_beat_type)
-            #
-            #     os.remove(finish_file)
-            #     os.remove(start_file)
-            #
-            # data_model.create_tfrecord_from_portal_event2(data_model_dir=data_model_dir,
-            #                                               data_dir=DATA_SOURCE,
-            #                                               media_dir=MEDIA_PATH,
-            #                                               save_image=False,
-            #                                               org_num_processes=os.cpu_count(),
-            #                                               org_num_shards=os.cpu_count())
+            if os.path.exists(datastore_file):
+                if os.path.exists(train_directory):
+                    shutil.rmtree(train_directory)
+
+                if os.path.exists(eval_directory):
+                    shutil.rmtree(eval_directory)
+
+                if os.path.exists(output_dir):
+                    shutil.rmtree(output_dir)
+
+                if os.path.exists(datastore_file):
+                    os.remove(datastore_file)
+
+                if os.path.exists(ds_eval_file):
+                    os.remove(ds_eval_file)
+
+                if os.path.exists(ds_train_file):
+                    os.remove(ds_train_file)
+
+                if os.path.exists(ds_study_eval):
+                    os.remove(ds_study_eval)
+
+                if os.path.exists(ds_study_train):
+                    os.remove(ds_study_train)
+
+                if os.path.exists(ds_study_info):
+                    os.remove(ds_study_info)
+
+                if os.path.exists(ds_train_study_info):
+                    os.remove(ds_train_study_info)
+
+                if os.path.exists(ds_eval_study_info):
+                    os.remove(ds_eval_study_info)
+
+                if os.path.exists(all_beat_type):
+                    os.remove(all_beat_type)
+
+                if os.path.exists(all_train_beat_type):
+                    os.remove(all_train_beat_type)
+
+                if os.path.exists(all_eval_beat_type):
+                    os.remove(all_eval_beat_type)
+
+                if os.path.exists(train_beat_type):
+                    os.remove(train_beat_type)
+
+                os.remove(finish_file)
+                os.remove(start_file)
+
+            data_model.create_tfrecord_from_portal_event2(data_model_dir=data_model_dir,
+                                                          data_dir=DATA_SOURCE,
+                                                          media_dir=MEDIA_PATH,
+                                                          save_image=False,
+                                                          org_num_processes=os.cpu_count(),
+                                                          org_num_shards=os.cpu_count())
             # endregion random create data_input
 
             with open(datastore_file, 'r') as json_file:
@@ -184,34 +175,34 @@ def train():
 
             for i, model_name in enumerate(MODEL):
                 model_dir = '{}/model/{}_{}'.format(output_dir, model_name, count)
-                # log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
-            #
-            #     if not os.path.exists(output_dir):
-            #         # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
-            #         # shutil.rmtree(output_dir)
-            #         os.makedirs(output_dir)
-            #
-            #     for i in [model_dir, log_dir]:
-            #         if not os.path.exists(i):
-            #             os.makedirs(i)
-            #
-            #     # region training
-            #     process_train = multiprocessing.Process(target=train_beat_classification,
-            #                                             args=(0,
-            #                                                   model_name,
-            #                                                   log_dir,
-            #                                                   model_dir,
-            #                                                   datastore_dict,
-            #                                                   None,
-            #                                                   train_directory,
-            #                                                   eval_directory,
-            #                                                   batch_size,
-            #                                                   4,
-            #                                                   2,
-            #                                                   MAX_EPOCH))
-            #     process_train.start()
-            #     process_train.join()
-            #     # endregion training
+                log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
+
+                if not os.path.exists(output_dir):
+                    # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
+                    # shutil.rmtree(output_dir)
+                    os.makedirs(output_dir)
+
+                for i in [model_dir, log_dir]:
+                    if not os.path.exists(i):
+                        os.makedirs(i)
+
+                # region training
+                process_train = multiprocessing.Process(target=train_beat_classification,
+                                                        args=(0,
+                                                              model_name,
+                                                              log_dir,
+                                                              model_dir,
+                                                              datastore_dict,
+                                                              None,
+                                                              train_directory,
+                                                              eval_directory,
+                                                              batch_size,
+                                                              4,
+                                                              2,
+                                                              MAX_EPOCH))
+                process_train.start()
+                process_train.join()
+                # endregion training
 
                 # region ec57
                 checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)
@@ -228,7 +219,7 @@ def train():
                              output_ec57_directory=output_ec57_directory,
                              physionet_directory=PATH_DATA_TRAINING,
                              overlap=5,
-                             num_of_process=4)
+                             num_of_process=8)
 
                     # endregion
                     # region check

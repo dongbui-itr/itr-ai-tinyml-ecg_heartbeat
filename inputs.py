@@ -25,7 +25,7 @@ from utils.reprocessing import (
     butter_highpass_filter,
     butter_bandpass_filter)
 from wfdb.processing import resample_sig, resample_singlechan
-from all_config import EXT_BEAT, EXT_BEAT_EVAL, TYPES_DATA
+from all_config import EXT_BEAT, EXT_BEAT_EVAL, TYPES_DATA, OVERLAB_IN_FILE, CLASS_TYPES
 
 # SYS
 NUM_NORMALIZATION = 0.6
@@ -266,6 +266,18 @@ LABEL_BEAT_TYPES = OrderedDict(
            ]),
             ("ARTIFACT", [
            ]),
+       ])),
+        ("6", OrderedDict([
+            ("NOTABEAT", [
+           ]),
+            ("N", [
+           ]),
+            ("S", [
+           ]),
+            ("V", [
+           ]),
+            ("ARTIFACT", [
+           ]),
        ]))
    ])
 LABEL_PHY_BEAT_TYPES = OrderedDict([("NOTABEAT", []),
@@ -391,13 +403,14 @@ def initiate_process_parameters(res_db_dict, ranges):
     return return_dict
 
 
-def get_annotations(label_path, sig_len):
-    qa_channel = label_path[:-4][-1]
+def get_annotations(label_path, sig_len, ext='atr'):
+    qa_channel = label_path[-1]
     beats = []
     symbols = []
     sample_artifact = []
     try:
-        ann = wf.rdann(label_path[:-4], label_path[-3:], )
+        # ann = wf.rdann(label_path[:-4], label_path[-3:], )
+        ann = wf.rdann(label_path, ext)
         beats = np.asarray(ann.sample, dtype=int)
         symbols = np.asarray(ann.symbol)
         check = (beats >= 0) == (beats < sig_len)
@@ -424,13 +437,16 @@ def get_studyid(label_path, res=None, ext='atr'):
                }
 
     try:
-        ann = wf.rdann(label_path[:-4], ext)
+        ann = wf.rdann(label_path, ext)
 
         symbols = np.asarray(ann.symbol)
         # symbols[symbols=='S'] ='A'
         # symbols = np.asarray([INV_SYMBOL[s] for s in symbols])
         for key in res:
-            res[key] += np.count_nonzero(symbols == key)
+            if key == 'ARTIFACT':
+                res[key] += np.count_nonzero(symbols == 'Q')
+            else:
+                res[key] += np.count_nonzero(symbols == key)
 
         studyFid = label_path.split('export_')[-1].split('/')[1]
         eventFid = label_path.split('export_')[-1].split('/')[2]
@@ -451,7 +467,9 @@ def _process_sample(use_gpu_index,
                     output_directory,
                     save_image,
                     debug=False):
-    file_name = file_path[:-4]
+    file_name = file_path
+    if 'event-mark-02-04-21-09-35-27-20-0-2' in file_name:
+        a = 100
     try:
         # print(basename(file_name))
         # ext_ann = file_path[-3:]
@@ -516,13 +534,12 @@ def _process_sample(use_gpu_index,
         start_samp = 0
         while True:
             stop_samp = start_samp + feature_len
-            symbol_true = []
-            beat_true = []
+            # symbol_true = []
+            # beat_true = []
             if len(_buf_ecg) > stop_samp:
                 buf_ecg = _buf_ecg[start_samp:stop_samp]
                 symbol_true = _symbol_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))]
-                beat_true = _beat_true[
-                                np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))] - start_samp
+                beat_true = _beat_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))] - start_samp
             else:
                 break
 
@@ -531,130 +548,159 @@ def _process_sample(use_gpu_index,
             #     symbol_true = np.delete(symbol_true, indx_Q)
             #     beat_true = np.delete(beat_true, indx_Q)
 
-            if debug:
+            if len(symbol_true) > 0 and (feature_len - beat_true[-1]) < 0.06 * sampling_rate:
+                beat_true = np.delete(beat_true, [-1])
+                symbol_true = np.delete(symbol_true, [-1])
+
+            flag_debug = False
+            if len(symbol_true) > 0:
+
+                # try:
+                #     indx_N = np.flatnonzero(symbol_true != 'Q')
+                #     if len(indx_N) > 0:
+                #         symbol_true[indx_N] = 'N'
+                # except Exception as err:
+                #     a=10
+
+                # indx_Q = np.flatnonzero(symbol_true == 'Q')
+                # if len(indx_Q) > 0:
+                #     __symbol_true = []
+                #     for i in range(len(symbol_true)):
+                #         if i in indx_Q:
+                #             __symbol_true.append('ARTIFACT')
+                #         else:
+                #             __symbol_true.append(symbol_true[i])
+                #
+                #     symbol_true = np.asarray(__symbol_true)
+                __symbol_true = []
+                __beat_true = []
+                for i in range(len(symbol_true)):
+                    if symbol_true[i] in ['Q']:
+                        __symbol_true.append('ARTIFACT')
+                        __beat_true.append(beat_true[i])
+                    elif symbol_true[i] in CLASS_TYPES:
+                        __symbol_true.append(symbol_true[i])
+                        __beat_true.append(beat_true[i])
+                        flag_debug = True
+                    elif symbol_true[i] in ['M']:
+                        continue
+                    else: #symbol_true[i] in ['N', 'S', 'R']
+                        __symbol_true.append('N')
+                        __beat_true.append(beat_true[i])
+
+                symbol_true = np.asarray(__symbol_true)
+                beat_true = np.asarray(beat_true)
+
+            if debug and flag_debug and 'V' in symbol_true:
                 plt.plot(buf_ecg)
                 plt.plot(beat_true, buf_ecg[beat_true], 'r*')
                 [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
                 plt.show()
                 plt.close()
 
-            if len(symbol_true) > 0:
-                try:
-                    indx_N = np.flatnonzero(symbol_true != 'Q')
-                    if len(indx_N) > 0:
-                        symbol_true[indx_N] = 'N'
-                except Exception as err:
-                    a = 10
+            data_len = len(buf_ecg)
+            symbol_true = [ind[s] for s in symbol_true]
+            beat_true = np.asarray(beat_true, dtype=int)
+            symbol_true = np.asarray(symbol_true, dtype=int)
 
-                indx_Q = np.flatnonzero(symbol_true == 'Q')
-                if len(indx_Q) > 0:
-                    __symbol_true = []
-                    for i in range(len(symbol_true)):
-                        if i in indx_Q:
-                            __symbol_true.append('ARTIFACT')
-                        else:
-                            __symbol_true.append(symbol_true[i])
+            label_len = feature_len // num_block
+            data_index = np.arange(feature_len)[None, :] + \
+                         np.arange(0, data_len, feature_len)[:, None]
+            label_index = np.arange(label_len)[None, None, :] + \
+                          np.arange(0, feature_len, label_len)[None, :, None] + \
+                          np.arange(0, data_len, feature_len)[:, None, None]
 
-                    symbol_true = np.asarray(__symbol_true)
+            lbl_samp = np.full(data_len, ind["NOTABEAT"], dtype=int)
+            if len(sample_artifact) > 0 and "ARTIFACT" in beat_class.keys():
+                for a in sample_artifact:
+                    a = (a * sampling_rate) // fs_origin
+                    lbl_samp[a] = ind["ARTIFACT"]
 
-        data_len = len(buf_ecg)
-        symbol_true = [ind[s] for s in symbol_true]
-        beat_true = np.asarray(beat_true, dtype=int)
-        symbol_true = np.asarray(symbol_true, dtype=int)
+            lbl_samp[beat_true] = symbol_true
+            process_data = buf_ecg[data_index]
+            lbl_samp_frame = lbl_samp[label_index]
 
-        label_len = feature_len // num_block
-        data_index = np.arange(feature_len)[None, :] + \
-                     np.arange(0, data_len, feature_len)[:, None]
-        label_index = np.arange(label_len)[None, None, :] + \
-                      np.arange(0, feature_len, label_len)[None, :, None] + \
-                      np.arange(0, data_len, feature_len)[:, None, None]
+            process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int).flatten()
+            res_db_dict[ds_type]["total_sample"] += len(process_data)
+            for key in beat_class.keys():
+                lbl_int = int(ind[key])
+                lbl_pos = np.where(process_label_symbol == lbl_int)[0]
+                if len(lbl_pos) > 0:
+                    res_db_dict[ds_type][key] += len(lbl_pos)
 
-        lbl_samp = np.full(data_len, ind["NOTABEAT"], dtype=int)
-        if len(sample_artifact) > 0 and "ARTIFACT" in beat_class.keys():
-            for a in sample_artifact:
-                a = (a * sampling_rate) // fs_origin
-                lbl_samp[a] = ind["ARTIFACT"]
+            # if save_image:
+            #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
+            #     if not os.path.exists(sub_save_image):
+            #         os.makedirs(sub_save_image)
+            #         file_count = 0
+            #     else:
+            #         _, _, files = next(os.walk(sub_save_image))
+            #         file_count = len(files)
+            #
+            #     if file_count < MAX_NUM_IMG_SAVE:
+            #         note = ""
+            #         for n in ind_invert.keys():
+            #             note += "{}: {}\n".format(n, ind_invert[n])
+            #
+            #         buf_frame = buf_ecg.copy()
+            #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
+            #         buf_mark = np.zeros(data_len)
+            #         buf_mark[_from_event: _to_event] = max(buf_lbl)
+            #         plot_len = data_len // 3
+            #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
+            #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
+            #             main_rhythm_file,
+            #             sub_rhythm_file,
+            #             basename(file_name)), fontsize=11)
+            #         for i, ax in enumerate(axx):
+            #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
+            #             ax.text(0, 0, technician_comment)
+            #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
+            #                     wrap=True)
+            #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
+            #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
+            #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
+            #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
+            #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
+            #             ax.set_xticks(major_ticks)
+            #             ax.set_xticks(minor_ticks, minor=True)
+            #             ax.set_yticks(
+            #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
+            #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
+            #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
+            #             ax.legend()
+            #
+            #         DEBUG_IMG = False
+            #         if not DEBUG_IMG:
+            #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
+            #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
+            #             plt.close(fig)
+            #         else:
+            #             print(basename(file_name))
+            #             plt.show()
+            # print(file_name.split('export_')[-1].split('/')[0])
+            # print(process_label_symbol)
 
-        lbl_samp[beat_true] = symbol_true
-        process_data = buf_ecg[data_index]
-        lbl_samp_frame = lbl_samp[label_index]
+            np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                            writer=writer)
 
-        process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int).flatten()
-        res_db_dict[ds_type]["total_sample"] += len(process_data)
-        for key in beat_class.keys():
-            lbl_int = int(ind[key])
-            lbl_pos = np.where(process_label_symbol == lbl_int)[0]
-            if len(lbl_pos) > 0:
-                res_db_dict[ds_type][key] += len(lbl_pos)
+            np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                            writer=writer)
 
-        # if save_image:
-        #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
-        #     if not os.path.exists(sub_save_image):
-        #         os.makedirs(sub_save_image)
-        #         file_count = 0
-        #     else:
-        #         _, _, files = next(os.walk(sub_save_image))
-        #         file_count = len(files)
-        #
-        #     if file_count < MAX_NUM_IMG_SAVE:
-        #         note = ""
-        #         for n in ind_invert.keys():
-        #             note += "{}: {}\n".format(n, ind_invert[n])
-        #
-        #         buf_frame = buf_ecg.copy()
-        #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
-        #         buf_mark = np.zeros(data_len)
-        #         buf_mark[_from_event: _to_event] = max(buf_lbl)
-        #         plot_len = data_len // 3
-        #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
-        #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
-        #             main_rhythm_file,
-        #             sub_rhythm_file,
-        #             basename(file_name)), fontsize=11)
-        #         for i, ax in enumerate(axx):
-        #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
-        #             ax.text(0, 0, technician_comment)
-        #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
-        #                     wrap=True)
-        #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
-        #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
-        #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
-        #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
-        #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
-        #             ax.set_xticks(major_ticks)
-        #             ax.set_xticks(minor_ticks, minor=True)
-        #             ax.set_yticks(
-        #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
-        #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
-        #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
-        #             ax.legend()
-        #
-        #         DEBUG_IMG = False
-        #         if not DEBUG_IMG:
-        #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
-        #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
-        #             plt.close(fig)
-        #         else:
-        #             print(basename(file_name))
-        #             plt.show()
-        # print(file_name.split('export_')[-1].split('/')[0])
-        # print(process_label_symbol)
+            # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
+            #
+            # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
 
-        np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                        writer=writer)
+            # print("test")
+            start_samp += int(OVERLAB_IN_FILE * sampling_rate)
+            # break
 
-        np_to_tfrecords(sample_buffer=np.reshape(process_data/3, (-1, feature_len)),
-                        label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                        writer=writer)
-
-        # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
-        #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-        #                 writer=writer)
-        #
-        # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
-        #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-        #                 writer=writer)
 
         # endregion PORTAL
 
@@ -677,7 +723,6 @@ def _process_files_batch(use_gpu_index,
                          total_shards,
                          save_image):
     """
-
      :param process_index:
      :param ranges:
      :param file_names:
@@ -1229,39 +1274,26 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     res = {}
     for label in datastore_dict["beat_class"].keys():
         if not 'NOTABEAT' in label:
-            if label == 'N':
-                list_events = []
-                for _label in TYPES_DATA:
-                    _list_events = np.asarray(list_data['Train'][f'{_label}_study'])
-                    list_events.extend(_list_events)
-                    len_bef = len(all_file_train)
-                    for studyid in _list_events:
-                        if _label in ['NOISE', 'AFIB']:
-                            all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
-                        else:
-                            all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+            _label = label
+            if label == 'ARTIFACT':
+                label = 'Q'
 
-                    print(f'Total of {_label}: {len(all_file_train) - len_bef}')
+            for studyID in list_data['Train'][f'{label}_study_path']:
+                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
+                if len(list_files) == 0:
+                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
+                if len(list_files) > 0:
+                    all_file_train.extend(list_files)
 
-            else:
-                _label = 'NOISE'
-                _list_events = np.asarray(list_data['Train'][f'{_label.upper()}_study'])
-                list_events.extend(_list_events)
-                len_bef = len(all_file_train)
-                for studyid in _list_events:
-                    if _label in ['NOISE', 'AFIB']:
-                        all_file_train.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
-                    else:
-                        all_file_train.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
-
-                print(f'Total of {_label}: {len(all_file_train) - len_bef}')
-
-            all_train_beat_type[label] = 0
-            train_beat_type[label] = 0
-            res[label] = 0
+            all_train_beat_type[_label] = 0
+            train_beat_type[_label] = 0
+            res[_label] = 0
 
     shuffle(all_file_train)
     for f in all_file_train:
+        if 'export_NOISE' in f:
+            a=10
+
         studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, res.copy())
         if studyFid not in ds_train_study_info.keys():
             ds_train_study_info[studyFid] = dict()
@@ -1289,7 +1321,11 @@ def create_tfrecord_from_portal_event2(data_model_dir,
             continue
 
         for label in datastore_dict["beat_class"].keys():
-            if not 'NOTABEAT' in label :
+            if not 'NOTABEAT' in label:
+                if label == 'ARTIFACT':
+                #     label = 'Q'
+                    a=10
+
                 train_beat_type[label] += ds_train_study_info[studyFid][label]
 
         ds_file["train"]["studyFid"].append(studyFid)
@@ -1297,8 +1333,6 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         ds_file["train"]["file"] += ds_train_study_info[studyFid]["file"]
         list_get.append(studyFid)
 
-    # if train_beat_type["N"] >= all_train_beat_type["N"] * percent_train:
-    #     break
     # endregion TRAIN DATA
 
     # region EVAL DATA
@@ -1307,36 +1341,21 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     all_eval_beat_type = dict()
     all_file_eval = []
     for label in datastore_dict["beat_class"].keys():
-        if not 'NOTABEAT' in label :
-            if label == 'N':
-                list_events = []
-                for _label in TYPES_DATA:
-                    _list_events = np.asarray(list_data['Eval'][f'{_label}_study'])
-                    list_events.extend(_list_events)
-                    len_bef = len(all_file_eval)
-                    for studyid in _list_events:
-                        if _label in ['NOISE', 'AFIB']:
-                            all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
-                        else:
-                            all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+        if not 'NOTABEAT' in label:
+            _label = label
+            if label == 'ARTIFACT':
+                label = 'Q'
 
-                    print(f'Eval Total of {_label}: {len(all_file_eval) - len_bef}')
-        else:
-            _label = 'NOISE'
-            _list_events = np.asarray(list_data['Eval'][f'{_label.upper()}_study'])
-            list_events.extend(_list_events)
-            len_bef = len(all_file_eval)
-            for studyid in _list_events:
-                if _label in ['NOISE', 'AFIB']:
-                    all_file_eval.extend(glob(data_dir + '/export_{}/*/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
-                else:
-                    all_file_eval.extend(glob(data_dir + '/export_{}/{}/*.{}'.format(_label, studyid, EXT_BEAT)))
+            for studyID in list_data['Eval'][f'{label}_study_path']:
+                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
+                if len(list_files) == 0:
+                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
+                if len(list_files) > 0:
+                    all_file_eval.extend(list_files)
 
-            print(f'Eval Total of {_label}: {len(all_file_eval) - len_bef}')
-
-        all_eval_beat_type[label] = 0
-        eval_beat_type[label] = 0
-        res[label] = 0
+        all_eval_beat_type[_label] = 0
+        eval_beat_type[_label] = 0
+        res[_label] = 0
 
     shuffle(all_file_eval)
     for f in all_file_eval:
@@ -1368,6 +1387,9 @@ def create_tfrecord_from_portal_event2(data_model_dir,
 
         for label in datastore_dict["beat_class"].keys():
             if not 'NOTABEAT' in label :
+                # if label == 'ARTIFACT':
+                #     label = 'Q'
+
                 eval_beat_type[label] += ds_eval_study_info[studyFid][label]
 
         ds_file["eval"]["studyFid"].append(studyFid)
@@ -1376,6 +1398,8 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         list_get.append(studyFid)
 
     # endregion EVAL DATA
+    print(f'Train: {train_beat_type}')
+    print(f'Eval: {eval_beat_type}')
 
     for t in ["train", "eval"]:
         datastore_dict['previous_shards'][t] = 0

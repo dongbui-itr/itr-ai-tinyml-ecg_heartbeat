@@ -316,6 +316,91 @@ def ec57_eval(dir_db,
                       event_ext_ai)
 
 
+def ec57_eval_event(dir_db,
+              output_ec57_directory,
+              physionet_directory,
+              beat_ext_db,
+              event_ext_db,
+              beat_ext_ai,
+              event_ext_ai,
+              half_ext=""):
+    """
+
+    :param dir_db:
+    :param output_ec57_directory:
+    :param physionet_directory:
+    :param beat_ext_db:
+    :param event_ext_db:
+    :param beat_ext_ai:
+    :param event_ext_ai:
+    :param half_ext:
+    :return:
+    """
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+
+    if not isdir(output_ec57_directory):
+        os.makedirs(output_ec57_directory)
+    else:
+        try:
+            os.remove('sd.out')
+            os.remove('bxb.out')
+        except:
+            pass
+
+    file_names = glob(physionet_directory + dir_db + '/*.hea')
+    file_names = [p[:-4] for p in file_names]
+    file_names = np.sort(file_names)
+    header = wf.rdheader(file_names[0])
+    fs_origin = header.fs
+
+    if beat_ext_ai is not None:
+        bxb_script(curr_dir + '/bxb-script2.sh',
+                   physionet_directory + dir_db,
+                   output_ec57_directory + dir_db + half_ext,
+                   beat_ext_db,
+                   beat_ext_ai,
+                   dir_db + '_QRS_report_line_C',
+                   dir_db + '_QRS_report_standard_C')
+        rann_script(curr_dir + '/rdann-script.sh',
+                    physionet_directory + dir_db,
+                    beat_ext_db,
+                    beat_ext_ai)
+
+        HR_calcu(fs_origin,
+                 physionet_directory + dir_db,
+                 beat_ext_db)
+
+        HR_calcu(fs_origin,
+                 physionet_directory + dir_db,
+                 beat_ext_ai)
+
+        wrann_script(curr_dir + '/wrann-script.sh',
+                     physionet_directory + dir_db,
+                     'rr' + beat_ext_db,
+                     'hr' + beat_ext_db)
+
+        wrann_script(curr_dir + '/wrann-script.sh',
+                     physionet_directory + dir_db,
+                     'rr' + beat_ext_ai,
+                     'hr' + beat_ext_ai)
+
+        mxm_script(curr_dir + '/mxm-script.sh',
+                   physionet_directory + dir_db,
+                   output_ec57_directory + dir_db + half_ext,
+                   'rr' + beat_ext_db,
+                   'rr' + beat_ext_ai,
+                   dir_db + '_HR_report')
+
+    if event_ext_ai is not None:
+        epicmp_script(curr_dir + '/epicmp-script.sh',
+                      physionet_directory + dir_db,
+                      output_ec57_directory + dir_db + half_ext,
+                      dir_db + '_AFib_report',
+                      event_ext_db,
+                      event_ext_ai)
+
+
+
 def ec57_eval2(output_ec57_directory,
                input_ec57_directory,
                fs_origin,

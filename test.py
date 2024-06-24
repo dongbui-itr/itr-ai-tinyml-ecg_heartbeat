@@ -1,12 +1,12 @@
+import tensorflow as tf
 import numpy as np
 
-beat_feature_len = 640
-data_len = 23040
-max = []
-for k in range(40, 640, 1):
-    max.append(np.max(np.arange(beat_feature_len)[None, :] + np.arange(0, data_len - beat_feature_len, beat_feature_len - k)[:, None]))
 
-print(np.argmin(np.asarray(max) - data_len))
+# print(tf.config.list_physical_devices('GPU'))
+with tf.device('/gpu:0'):
+    a = tf.constant(np.arange(1, 9001), shape=[10, 900], name='a')
+    b = tf.constant(np.arange(1, 9001), shape=[900, 10], name='b')
+    c = tf.matmul(a, b)
 
-print("Stop")
+
 
