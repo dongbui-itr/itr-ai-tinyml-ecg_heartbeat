@@ -3,12 +3,12 @@ import os
 
 from glob import glob
 
-def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/240527_NSV_2/', sampling_rate='128'):
+def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') , sampling_rate='128'):
     dbs = ['mitdb', 'nstdb', 'ahadb', 'escdb', 'afdb']
     # for db in dbs:
     list_ec57 = np.sort(np.asarray(glob(data_path + '/*_c*/*/*/*/*/{}_*_line.out'.format('*'))))
 
-    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240529_NSV.csv'.format('result')
+    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240623_NSV.csv'.format('result')
     excel_file = open(excel_file_path, 'w')
 
     line = 'CKT_name'

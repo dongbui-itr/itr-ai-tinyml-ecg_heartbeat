@@ -24,7 +24,7 @@ def train():
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV_2/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
-    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240529') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
