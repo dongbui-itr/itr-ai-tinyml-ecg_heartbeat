@@ -21,22 +21,22 @@ def train():
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240520') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/Process/AI-Database/Research/noise-detection/5s_data/{}/'.format('240522') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
+    DATA_SOURCE = '/mnt/Process/AI-Database/Research/noise-detection/5s_data/Collection_20240510/'
 
 
     # sl.split_data(MEDIA_PATH)
 
-    PATH_DATA_TRAINING = '/mnt/Dataset//ECG/PhysionetData/'
+    PATH_DATA_TRAINING = '/mnt/Process/AI-Database/PhysionetData/'
     DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
-        ['nstdb', 'atr', 'atr'],
+        # ['nstdb', 'atr', 'atr'],
         # ['ahadb', 'atr', 'atr'],
         # ['escdb', 'atr', 'atr'],
     ]

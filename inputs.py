@@ -474,9 +474,9 @@ def _process_sample(use_gpu_index,
         lock.acquire()
         lock.release()
 
-        qa_channel, beat_true, symbol_true, sample_artifact = get_annotations(file_path,
-                                                                              int(EVENT_LEN_STANDARD * fs_origin))
-        if 0 == len(beat_true) or len(beat_true) != len(symbol_true):
+        qa_channel, _beat_true, _symbol_true, sample_artifact = get_annotations(file_path,
+                                                                                int(EVENT_LEN_STANDARD * fs_origin))
+        if 0 == len(_beat_true) or len(_beat_true) != len(_symbol_true):
             return res_db_dict
 
         if qa_channel >= 0:
@@ -490,7 +490,7 @@ def _process_sample(use_gpu_index,
             buf_ecg_org, _ = resample_sig(buf_record[:, event_channel],
                                           fs_origin,
                                           sampling_rate)
-            beat_true = (beat_true * sampling_rate) // fs_origin
+            _beat_true = (_beat_true * sampling_rate) // fs_origin
         else:
             buf_ecg_org = buf_record[:, event_channel].copy()
 
@@ -501,49 +501,61 @@ def _process_sample(use_gpu_index,
 
         buf_ecg_org = buf_ecg_org[:len_of_standard]
 
-        buf_ecg = butter_bandpass_filter(buf_ecg_org, BAND_PASS_FILTER[0], BAND_PASS_FILTER[1], sampling_rate)
-        buf_ecg = np.clip(buf_ecg, CLIP_RANGE[0], CLIP_RANGE[1])
+        _buf_ecg = butter_bandpass_filter(buf_ecg_org, BAND_PASS_FILTER[0], BAND_PASS_FILTER[1], sampling_rate)
+        _buf_ecg = np.clip(_buf_ecg, CLIP_RANGE[0], CLIP_RANGE[1])
 
         if ebwr:
-            buf_ecg = bwr(buf_ecg, sampling_rate)
+            _buf_ecg = bwr(_buf_ecg, sampling_rate)
 
         if enorm:
-            buf_ecg = norm(buf_ecg, int(NUM_NORMALIZATION * sampling_rate))
+            _buf_ecg = norm(_buf_ecg, int(NUM_NORMALIZATION * sampling_rate))
 
         ind = {k: i for i, k in enumerate(beat_class.keys())}
         ind_invert = {i: k for i, k in enumerate(beat_class.keys())}
 
-        if len(buf_ecg) > feature_len:
-            buf_ecg = buf_ecg[:feature_len]
-            symbol_true = symbol_true[np.flatnonzero(beat_true < feature_len)]
-            beat_true = beat_true[np.flatnonzero(beat_true < feature_len)]
+        start_samp = 0
+        while True:
+            stop_samp = start_samp + feature_len
+            symbol_true = []
+            beat_true = []
+            if len(_buf_ecg) > stop_samp:
+                buf_ecg = _buf_ecg[start_samp:stop_samp]
+                symbol_true = _symbol_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))]
+                beat_true = _beat_true[
+                                np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))] - start_samp
+            else:
+                break
 
-        # indx_Q = np.flatnonzero(symbol_true == 'Q')
-        # if len(indx_Q) > 0:
-        #     symbol_true = np.delete(symbol_true, indx_Q)
-        #     beat_true = np.delete(beat_true, indx_Q)
+            # indx_Q = np.flatnonzero(symbol_true == 'Q')
+            # if len(indx_Q) > 0:
+            #     symbol_true = np.delete(symbol_true, indx_Q)
+            #     beat_true = np.delete(beat_true, indx_Q)
 
-        if debug:
-            plt.plot(buf_ecg)
-            plt.plot(beat_true, buf_ecg[beat_true], 'r*')
-            [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
-            plt.show()
-            plt.close()
+            if debug:
+                plt.plot(buf_ecg)
+                plt.plot(beat_true, buf_ecg[beat_true], 'r*')
+                [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
+                plt.show()
+                plt.close()
 
-        indx_N = np.flatnonzero(symbol_true != 'Q')
-        if len(indx_N) > 0:
-            symbol_true[indx_N] = 'N'
+            if len(symbol_true) > 0:
+                try:
+                    indx_N = np.flatnonzero(symbol_true != 'Q')
+                    if len(indx_N) > 0:
+                        symbol_true[indx_N] = 'N'
+                except Exception as err:
+                    a = 10
 
-        indx_Q = np.flatnonzero(symbol_true == 'Q')
-        if len(indx_Q) > 0:
-            _symbol_true = []
-            for i in range(len(symbol_true)):
-                if i in indx_Q:
-                    _symbol_true.append('ARTIFACT')
-                else:
-                    _symbol_true.append(symbol_true[i])
+                indx_Q = np.flatnonzero(symbol_true == 'Q')
+                if len(indx_Q) > 0:
+                    __symbol_true = []
+                    for i in range(len(symbol_true)):
+                        if i in indx_Q:
+                            __symbol_true.append('ARTIFACT')
+                        else:
+                            __symbol_true.append(symbol_true[i])
 
-            symbol_true = np.asarray(_symbol_true)
+                    symbol_true = np.asarray(__symbol_true)
 
         data_len = len(buf_ecg)
         symbol_true = [ind[s] for s in symbol_true]
