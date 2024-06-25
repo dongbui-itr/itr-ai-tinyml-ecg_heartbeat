@@ -11,36 +11,33 @@ import numpy as np
 import multiprocessing
 from distutils.dir_util import copy_tree
 from datetime import datetime
+from all_config import DB_TESTING, PATH_DATA_EC57
 
 import copy
 
 def train():
-    MAX_EPOCH = 50
+    MAX_EPOCH = 100
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
-    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240520') #beat_concat_seq_add_more2_128Hz + AFIB
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV_2/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') #beat_concat_seq_add_more2_128Hz + AFIB
+    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240529') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
-
+    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_rm/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
 
     # sl.split_data(MEDIA_PATH)
 
-    PATH_DATA_TRAINING = '/mnt/Dataset//ECG/PhysionetData/'
-    DB_TESTING = [
-        # ['mitdb', 'atr', 'atr'],
-        # ['nstdb', 'atr', 'atr'],
-        # ['ahadb', 'atr', 'atr'],
-        # ['escdb', 'atr', 'atr'],
-        ['afdb', 'qrs', 'atr'],
-    ]
+    PATH_DATA_TRAINING = PATH_DATA_EC57
 
     # sampling_rate
     # feature_len
@@ -53,10 +50,10 @@ def train():
     # percent_train
 
     DATA = [
-        '128_05_40_0_0_0_5_0_0.99',
+        '128_05_40_0_0_0_6_0_0.99',
     ]
     BATCH_SIZE_TRAINING = [
-        128,
+        64,
     ]
 
     MODEL = [
@@ -79,23 +76,16 @@ def train():
         num_try_on_with_dataset = 1
         try_on_with_dataset = 0
         squared_error_gross_ec57 = THR
-        count = 1
+        count = 0
         pt_bk = copy.copy(pt)
         flag_reset_data = False
-        # while try_on_with_dataset < num_try_on_with_dataset:
-        # c_in = ['100', '105', '11', '110', '115', '116', '117', '123', '124', '129', '133', '137', '14', '146', '17', '21', '22', '23', '26', '27', '30', '37', '41', '45', '48', '4a', '52', '56', '58',  '60',  '75', '77', '87', '98']
-        c_in = ['4']
-        while count < 156:
+        while try_on_with_dataset < num_try_on_with_dataset:
+        # while count < 4:
             count += 1
-            if not str(count) in c_in:
-                continue
-
             # sl.split_data_2(DATA_SOURCE, MEDIA_PATH, count)
             # pt = pt + '_d{}_c{}'.format(k, count)
             pt = copy.copy(pt_bk)
-            pt = pt + '_c{}a'.format(count)
-            # pt = pt + '_c{}'.format(100)
-            # count=100
+            pt = pt + '_c{}'.format(count)
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {} try on {} get {} "
                   "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<".format(pt, count, try_on_with_dataset))
             # region random create data_input
@@ -177,41 +167,41 @@ def train():
             #                                               save_image=False,
             #                                               org_num_processes=os.cpu_count(),
             #                                               org_num_shards=os.cpu_count())
-            # endregion random create data_input
+            # # endregion random create data_input
 
             with open(datastore_file, 'r') as json_file:
                 datastore_dict = json.load(json_file)
 
             for i, model_name in enumerate(MODEL):
                 model_dir = '{}/model/{}_{}'.format(output_dir, model_name, count)
-                # log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
-            #
-            #     if not os.path.exists(output_dir):
-            #         # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
-            #         # shutil.rmtree(output_dir)
-            #         os.makedirs(output_dir)
-            #
-            #     for i in [model_dir, log_dir]:
-            #         if not os.path.exists(i):
-            #             os.makedirs(i)
-            #
-            #     # region training
-            #     process_train = multiprocessing.Process(target=train_beat_classification,
-            #                                             args=(0,
-            #                                                   model_name,
-            #                                                   log_dir,
-            #                                                   model_dir,
-            #                                                   datastore_dict,
-            #                                                   None,
-            #                                                   train_directory,
-            #                                                   eval_directory,
-            #                                                   batch_size,
-            #                                                   4,
-            #                                                   2,
-            #                                                   MAX_EPOCH))
-            #     process_train.start()
-            #     process_train.join()
-            #     # endregion training
+                log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
+
+                if not os.path.exists(output_dir):
+                    # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
+                    # shutil.rmtree(output_dir)
+                    os.makedirs(output_dir)
+
+                for i in [model_dir, log_dir]:
+                    if not os.path.exists(i):
+                        os.makedirs(i)
+
+                # # region training
+                # process_train = multiprocessing.Process(target=train_beat_classification,
+                #                                         args=(0,
+                #                                               model_name,
+                #                                               log_dir,
+                #                                               model_dir,
+                #                                               datastore_dict,
+                #                                               None,
+                #                                               train_directory,
+                #                                               eval_directory,
+                #                                               batch_size,
+                #                                               4,
+                #                                               2,
+                #                                               MAX_EPOCH))
+                # process_train.start()
+                # process_train.join()
+                # # endregion training
 
                 # region ec57
                 checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)
@@ -228,11 +218,11 @@ def train():
                              output_ec57_directory=output_ec57_directory,
                              physionet_directory=PATH_DATA_TRAINING,
                              overlap=5,
-                             num_of_process=4)
+                             num_of_process=3)
 
                     # endregion
                     # region check
-                    num_class = 3
+                    num_class = len(list((data_model.LABEL_BEAT_TYPES[int(pt.split('_')[6])]).keys()))
                     squared_error_gross = 0
                     squared_error_average = 0
                     for f in DB_TESTING:

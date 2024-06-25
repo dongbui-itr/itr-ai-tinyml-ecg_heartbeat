@@ -612,10 +612,11 @@ OVERLAB_IN_FILE = 3
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
-        ['nstdb', 'atr', 'atr'],
-        ['ahadb', 'atr', 'atr'],
-        ['escdb', 'atr', 'atr'],
+        # ['nstdb', 'atr', 'atr'],
+        # ['ahadb', 'atr', 'atr'],
+        # ['escdb', 'atr', 'atr'],
+        # ['afdb', 'qrs', 'atr'],
     ]
 
-FILE_NAME = '*'
+FILE_NAME = '109'
 DEBUG = False

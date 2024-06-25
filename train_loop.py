@@ -24,8 +24,9 @@ def train():
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240514') #beat_concat_seq_add_more2_128Hz
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV_2/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
-    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') #beat_concat_seq_add_more2_128Hz + AFIB
-    # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format(231003)
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') #beat_concat_seq_add_more2_128Hz + AFIB
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240529') #beat_concat_seq_add_more2_128Hz + AFIB BEST QRS
+    MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240625')
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
@@ -111,62 +112,62 @@ def train():
             output_dir = MEDIA_PATH + '/' + pt + '/output'
             train_directory = MEDIA_PATH + '/' + pt + '/train'
             eval_directory = MEDIA_PATH + '/' + pt + '/eval'
-            if os.path.exists(datastore_file):
-                if os.path.exists(train_directory):
-                    shutil.rmtree(train_directory)
-
-                if os.path.exists(eval_directory):
-                    shutil.rmtree(eval_directory)
-
-                if os.path.exists(output_dir):
-                    shutil.rmtree(output_dir)
-
-                if os.path.exists(datastore_file):
-                    os.remove(datastore_file)
-
-                if os.path.exists(ds_eval_file):
-                    os.remove(ds_eval_file)
-
-                if os.path.exists(ds_train_file):
-                    os.remove(ds_train_file)
-
-                if os.path.exists(ds_study_eval):
-                    os.remove(ds_study_eval)
-
-                if os.path.exists(ds_study_train):
-                    os.remove(ds_study_train)
-
-                if os.path.exists(ds_study_info):
-                    os.remove(ds_study_info)
-
-                if os.path.exists(ds_train_study_info):
-                    os.remove(ds_train_study_info)
-
-                if os.path.exists(ds_eval_study_info):
-                    os.remove(ds_eval_study_info)
-
-                if os.path.exists(all_beat_type):
-                    os.remove(all_beat_type)
-
-                if os.path.exists(all_train_beat_type):
-                    os.remove(all_train_beat_type)
-
-                if os.path.exists(all_eval_beat_type):
-                    os.remove(all_eval_beat_type)
-
-                if os.path.exists(train_beat_type):
-                    os.remove(train_beat_type)
-
-                os.remove(finish_file)
-                os.remove(start_file)
-
-            data_model.create_tfrecord_from_portal_event2(data_model_dir=data_model_dir,
-                                                          data_dir=DATA_SOURCE,
-                                                          media_dir=MEDIA_PATH,
-                                                          save_image=False,
-                                                          org_num_processes=os.cpu_count(),
-                                                          org_num_shards=os.cpu_count())
-            # endregion random create data_input
+            # if os.path.exists(datastore_file):
+            #     if os.path.exists(train_directory):
+            #         shutil.rmtree(train_directory)
+            #
+            #     if os.path.exists(eval_directory):
+            #         shutil.rmtree(eval_directory)
+            #
+            #     if os.path.exists(output_dir):
+            #         shutil.rmtree(output_dir)
+            #
+            #     if os.path.exists(datastore_file):
+            #         os.remove(datastore_file)
+            #
+            #     if os.path.exists(ds_eval_file):
+            #         os.remove(ds_eval_file)
+            #
+            #     if os.path.exists(ds_train_file):
+            #         os.remove(ds_train_file)
+            #
+            #     if os.path.exists(ds_study_eval):
+            #         os.remove(ds_study_eval)
+            #
+            #     if os.path.exists(ds_study_train):
+            #         os.remove(ds_study_train)
+            #
+            #     if os.path.exists(ds_study_info):
+            #         os.remove(ds_study_info)
+            #
+            #     if os.path.exists(ds_train_study_info):
+            #         os.remove(ds_train_study_info)
+            #
+            #     if os.path.exists(ds_eval_study_info):
+            #         os.remove(ds_eval_study_info)
+            #
+            #     if os.path.exists(all_beat_type):
+            #         os.remove(all_beat_type)
+            #
+            #     if os.path.exists(all_train_beat_type):
+            #         os.remove(all_train_beat_type)
+            #
+            #     if os.path.exists(all_eval_beat_type):
+            #         os.remove(all_eval_beat_type)
+            #
+            #     if os.path.exists(train_beat_type):
+            #         os.remove(train_beat_type)
+            #
+            #     os.remove(finish_file)
+            #     os.remove(start_file)
+            #
+            # data_model.create_tfrecord_from_portal_event2(data_model_dir=data_model_dir,
+            #                                               data_dir=DATA_SOURCE,
+            #                                               media_dir=MEDIA_PATH,
+            #                                               save_image=False,
+            #                                               org_num_processes=os.cpu_count(),
+            #                                               org_num_shards=os.cpu_count())
+            # # endregion random create data_input
 
             with open(datastore_file, 'r') as json_file:
                 datastore_dict = json.load(json_file)

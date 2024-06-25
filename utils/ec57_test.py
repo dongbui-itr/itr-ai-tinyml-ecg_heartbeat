@@ -247,7 +247,6 @@ def ec57_eval(dir_db,
               event_ext_ai,
               half_ext=""):
     """
-
     :param dir_db:
     :param output_ec57_directory:
     :param physionet_directory:
