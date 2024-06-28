@@ -599,6 +599,17 @@ TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 
 CLASS_TYPES = ['N', 'V', 'S']
 
+CLASSES = {
+    "NOTABEAT": "Not a Beat",
+    "N": "QRS",
+    "S": "QRS",
+    "V": "QRS",
+    "ARTIFACT": "Artifact"
+}
+
+REVERSED_CLASSES = {v: k for k, v in CLASSES.items()}
+NUM_CLASS = len(REVERSED_CLASSES)
+
 CLASS_WEIGHTS = {
         0: 0.5,
         1: 2,

@@ -2461,5 +2461,20 @@ def test_model():
     model.summary()
 
 
+def freeze_model(train_model, num_class=2, last_layer_name='last_conv_conv1d'):
+    ######### FREEZE MODEL #############
+    input_layer = train_model.input
+    last_layer = train_model.get_layer(last_layer_name).output
+
+    dense_layer = keras.layers.Dense(num_class, activation='relu', name='last_dense')(last_layer)
+    softmax_layer = keras.layers.Softmax(axis=-1, name='softmax')(dense_layer)
+    train_model = keras.Model(input_layer, softmax_layer)
+
+    for i_layer in range(len(train_model.layers) - 2):
+        train_model.layers[i_layer].trainable = False
+
+    return train_model
+
+
 if __name__ == '__main__':
     test_model()

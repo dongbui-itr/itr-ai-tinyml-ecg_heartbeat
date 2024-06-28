@@ -184,34 +184,34 @@ def train():
 
             for i, model_name in enumerate(MODEL):
                 model_dir = '{}/model/{}_{}'.format(output_dir, model_name, count)
-                # log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
-            #
-            #     if not os.path.exists(output_dir):
-            #         # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
-            #         # shutil.rmtree(output_dir)
-            #         os.makedirs(output_dir)
-            #
-            #     for i in [model_dir, log_dir]:
-            #         if not os.path.exists(i):
-            #             os.makedirs(i)
-            #
-            #     # region training
-            #     process_train = multiprocessing.Process(target=train_beat_classification,
-            #                                             args=(0,
-            #                                                   model_name,
-            #                                                   log_dir,
-            #                                                   model_dir,
-            #                                                   datastore_dict,
-            #                                                   None,
-            #                                                   train_directory,
-            #                                                   eval_directory,
-            #                                                   batch_size,
-            #                                                   4,
-            #                                                   2,
-            #                                                   MAX_EPOCH))
-            #     process_train.start()
-            #     process_train.join()
-            #     # endregion training
+                log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
+
+                if not os.path.exists(output_dir):
+                    # shutil.move(output_dir, MEDIA_PATH + f'm{i}')
+                    # shutil.rmtree(output_dir)
+                    os.makedirs(output_dir)
+
+                for i in [model_dir, log_dir]:
+                    if not os.path.exists(i):
+                        os.makedirs(i)
+
+                # # region training
+                # process_train = multiprocessing.Process(target=train_beat_classification,
+                #                                         args=(0,
+                #                                               model_name,
+                #                                               log_dir,
+                #                                               model_dir,
+                #                                               datastore_dict,
+                #                                               None,
+                #                                               train_directory,
+                #                                               eval_directory,
+                #                                               batch_size,
+                #                                               4,
+                #                                               2,
+                #                                               MAX_EPOCH))
+                # process_train.start()
+                # process_train.join()
+                # # endregion training
 
                 # region ec57
                 checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)
@@ -232,7 +232,7 @@ def train():
 
                     # endregion
                     # region check
-                    num_class = 3
+                    num_class = len(list((data_model.LABEL_BEAT_TYPES[int(pt.split('_')[6])]).keys()))
                     squared_error_gross = 0
                     squared_error_average = 0
                     for f in DB_TESTING:

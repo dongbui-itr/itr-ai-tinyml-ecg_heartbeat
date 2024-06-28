@@ -1,18 +1,20 @@
 # Define paths to model files
-import getpass
-import os
-import json
 import re
-import inputs as data_model
-from train_loop_utils import train_beat_classification
-from run_ec57_utils import run_ec57
-import shutil
-import numpy as np
-import multiprocessing
-from distutils.dir_util import copy_tree
-from datetime import datetime
-
+import os
 import copy
+import json
+import shutil
+import getpass
+import multiprocessing
+
+import numpy as np
+import inputs as data_model
+
+from datetime import datetime
+from run_ec57_utils import run_ec57
+from distutils.dir_util import copy_tree
+from train_loop_utils import train_beat_classification
+
 
 def train():
     MAX_EPOCH = 50

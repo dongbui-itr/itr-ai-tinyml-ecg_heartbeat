@@ -128,13 +128,12 @@ def run_ec57(use_gpu_index,
                       ext_ai,
                       None)
 
-            del_result(db[0], physionet_directory, output_ec57_directory)
+            # del_result(db[0], physionet_directory, output_ec57_directory)
 
     fstatus = open(output_ec57_directory + '/finish.txt', 'w')
     fstatus.writelines(str(datetime.datetime.now()))
     fstatus.close()
     return ext_ai
-
 
 
 def run_portal(use_gpu_index,
