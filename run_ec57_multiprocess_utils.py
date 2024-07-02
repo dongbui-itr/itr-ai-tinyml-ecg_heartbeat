@@ -2,12 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import datetime
-import glob
 import os
+import glob
 import time
-from collections import defaultdict
+import datetime
 import operator
+from collections import defaultdict
 from os.path import basename, dirname
 
 import keras.models
@@ -723,7 +723,8 @@ def beat_rhythm_classification(beat_model,
                 beats = []
                 symbols = []
                 amps = []
-                for beats_group, beats_group2, beats_group3, buf_group, index_group in zip(beat_candidate, beat_candidate2,
+                for beats_group, beats_group2, beats_group3, buf_group, index_group in zip(beat_candidate,
+                                                                                           beat_candidate2,
                                                                                            beat_candidate3, frame,
                                                                                            data_index):
                     buf = buf_group[label_index]
@@ -1178,7 +1179,8 @@ def beat_classification(beat_model,
 
                                     if (goffset[-1] + beat_label_len) < beat_feature_len:
                                         index_ext = np.concatenate((index_ext,
-                                                                    np.arange(goffset[-1], (goffset[-1] + beat_label_len))))
+                                                                    np.arange(goffset[-1],
+                                                                              (goffset[-1] + beat_label_len))))
                                     try:
                                         gbuff = np.asarray(group_bwr_buff[index_ext - group_offset[0]]).flatten()
                                     except Exception as err:
@@ -1249,7 +1251,8 @@ def beat_classification(beat_model,
                             p = np.argmax(_amp)
                             start_samp = _beat[p] - 10 if _beat[p] - 10 > 0 else 0
                             stop_samp = _beat[p] + 10 if _beat[p] + 10 < len(buf_bwr_ecg) else len(buf_bwr_ecg)
-                            if np.max(buf_bwr_ecg[start_samp:stop_samp]) - np.min(buf_bwr_ecg[start_samp:stop_samp]) < 0.1:
+                            if np.max(buf_bwr_ecg[start_samp:stop_samp]) - np.min(
+                                    buf_bwr_ecg[start_samp:stop_samp]) < 0.1:
                                 continue
 
                             symbols.append(qr)
@@ -1280,7 +1283,8 @@ def beat_classification(beat_model,
                 beats = []
                 symbols = []
                 amps = []
-                for beats_group, beats_group2, beats_group3, buf_group, index_group in zip(beat_candidate, beat_candidate2,
+                for beats_group, beats_group2, beats_group3, buf_group, index_group in zip(beat_candidate,
+                                                                                           beat_candidate2,
                                                                                            beat_candidate3, frame,
                                                                                            data_index):
                     buf = buf_group[label_index]
@@ -1532,6 +1536,134 @@ def process_beat_classification(process_index,
     return log_lines
 
 
+def process_beat_classification_tune(process_index,
+                                     use_gpu_index,
+                                     file_list,
+                                     model_name,
+                                     checkpoint_dir,
+                                     datastore_dict,
+                                     ext_ai,
+                                     write_mit_annotation,
+                                     write_hes_annotation,
+                                     channel=0,
+                                     overlap=0,
+                                     memory=1024,
+                                     dir_image=None,
+                                     is_training=False):
+    """
+    """
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(use_gpu_index)
+
+    import tensorflow as tf
+
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    tf.get_logger().setLevel(tf.compat.v1.logging.ERROR)
+    tf.autograph.set_verbosity(1)
+
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        tf.config.experimental.set_virtual_device_configuration(
+            physical_devices[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memory)]
+        )
+    else:
+        my_devices = tf.config.experimental.list_physical_devices(device_type='CPU')
+        tf.config.experimental.set_visible_devices(devices=my_devices, device_type='CPU')
+
+    feature_len = datastore_dict["feature_len"]
+    beat_class = datastore_dict["beat_class"]
+
+    if not is_training:
+        _qrs_model_path = model_name.split('_')
+        func = ""
+        m = 0
+        for m in range(len(_qrs_model_path)):
+            if _qrs_model_path[m].isnumeric():
+                break
+            else:
+                func += _qrs_model_path[m] + "_"
+
+        func = func[:-1]
+        if 'beat' in func:
+            tmp = checkpoint_dir.split('/')
+            for i in tmp:
+                try:
+                    day_export = datetime.datetime.strptime(i.split('_')[0], '%y%m%d')
+                    break
+                except:
+                    continue
+
+            # day_export = checkpoint_dir.split('/')[6]
+            # day_export = datetime.datetime.strptime(day_export, '%y%m%d')
+
+            num_loop = int(_qrs_model_path[m])
+            num_filters = np.asarray([int(i) for i in _qrs_model_path[m + 1].split('.')], dtype=int)
+            try:
+                from_logits = bool(int(_qrs_model_path[m + 2]))
+            except:
+                from_logits = False
+
+            pre_beat_model = getattr(model, func)(feature_len,
+                                                  5,
+                                                  from_logits,
+                                                  num_filters,
+                                                  num_loop,
+                                                  float(_qrs_model_path[-1]))
+
+            beat_model = getattr(model, 'freeze_model')(pre_beat_model, len(beat_class))
+
+            # beat_model.summary()
+            checkpoint = glob.glob(checkpoint_dir + '/*.h5')[0]
+            beat_model.load_weights(checkpoint)
+        else:
+            return ""
+
+    else:
+        beat_model = model_name
+
+    log_lines = []
+    for file_name in file_list:
+
+        start = time.perf_counter()
+        if basename(file_name) == '114':
+            channel_ecg = 1
+        else:
+            channel_ecg = channel
+
+        total_peak, total_symbol, fs_origin = beat_classification(beat_model,
+                                                                  file_name,
+                                                                  channel_ecg,
+                                                                  datastore_dict,
+                                                                  overlap,
+                                                                  dir_image)
+        if fs_origin > 0:
+            if len(total_peak) == 0:
+                total_peak = [0]
+                total_symbol = ['N']
+
+            str_log = '{} with {} events take {} seconds'.format(
+                basename(dirname(file_name)) + '/' + basename(file_name),
+                len(total_peak),
+                time.perf_counter() - start)
+            print(str_log)
+            log_lines.append(str_log)
+            dir_test = os.path.dirname(file_name)
+            if write_mit_annotation:
+                # curr_dir = os.getcwd()
+                # os.chdir(dir_test + '/')
+                annotation2 = wf.Annotation(record_name=basename(file_name),
+                                            extension=ext_ai,
+                                            sample=np.asarray(total_peak),
+                                            symbol=np.asarray(total_symbol),
+                                            fs=fs_origin)
+                annotation2.wrann(write_fs=True, write_dir=dirname(file_name))
+                # os.chdir(curr_dir)
+
+    return log_lines
+
+
 def process_beat_classification_event(process_index,
                                       use_gpu_index,
                                       file_list,
@@ -1630,7 +1762,7 @@ def process_beat_classification_event(process_index,
 
     for file_name in file_list:
         start = time.perf_counter()
-        #load json
+        # load json
         json_path = glob.glob(file_name[:-4] + '*.json')[0]
         import json
         js_data = json.load(open(json_path))
@@ -1656,8 +1788,6 @@ def process_beat_classification_event(process_index,
                                                                   datastore_dict,
                                                                   overlap,
                                                                   dir_image)
-
-
 
         if fs_origin > 0:
             if len(total_peak) == 0:
@@ -1721,10 +1851,10 @@ def process_beat_classification_event(process_index,
 
                                     if len(sample_tech) > 0:
                                         annotation2 = wf.Annotation(record_name=basename(file_name)[:-4],
-                                                                   extension='atrtechmark',
-                                                                   sample=np.asarray(sample_tech),
-                                                                   symbol=np.asarray(symbol_tech),
-                                                                   fs=fs_origin)
+                                                                    extension='atrtechmark',
+                                                                    sample=np.asarray(sample_tech),
+                                                                    symbol=np.asarray(symbol_tech),
+                                                                    fs=fs_origin)
                                         annotation2.wrann(write_fs=True, write_dir=dirname(file_name))
                                         shutil.copy2(file_name[:-3] + 'atrtechmark', dst)
                 except:

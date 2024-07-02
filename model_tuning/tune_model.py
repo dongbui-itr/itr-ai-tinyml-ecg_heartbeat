@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import numpy as np
 
@@ -9,15 +10,18 @@ import matplotlib.pyplot as plt
 
 import all_config as cf
 from functools import partial
-from tensorflow.keras import backend as K
-
+from run_ec57_utils import run_ec57_tune
 from train_loop_utils import train_beat_classification, retrain_freeze_beat_classification
 from preprocess_data import _get_tfrecord_filenames, _preprocess_proto
+
 print(tf.test.is_gpu_available())
 tf.config.list_physical_devices('GPU')
 
 
-def get_output_from_pretrained_model(pretrain_checkpoint_dir, input_data):
+def retrain_model(
+        retrain=False,
+        run_ec57=False
+):
     with tf.device('/gpu:0'):
         train_directory = PATH + '/128_05_40_0_0_0_5_0_0.99_c1/train'
         eval_directory = PATH + '/128_05_40_0_0_0_5_0_0.99_c1/eval'
@@ -33,7 +37,7 @@ def get_output_from_pretrained_model(pretrain_checkpoint_dir, input_data):
         num_block = datastore_dict["num_block"]
         _qrs_model_path = model_name.split('_')
 
-        num_loop = 3 #int(_qrs_model_path[-4])
+        num_loop = 3  # int(_qrs_model_path[-4])
         num_filters = np.asarray([int(i) for i in _qrs_model_path[-3].split('.')], dtype=int)
 
         train_filenames = _get_tfrecord_filenames(train_directory, True)
@@ -62,84 +66,75 @@ def get_output_from_pretrained_model(pretrain_checkpoint_dir, input_data):
         val_dataset = val_dataset.batch(50)
         val_dataset = val_dataset.prefetch(50 * 5)
 
+        if retrain:
+            retrain_freeze_beat_classification(
+                0,
+                model_name,
+                log_dir,
+                model_dir,
+                datastore_dict,
+                True,
+                train_directory,
+                eval_directory,
+                128,
+                4,
+                2,
+                100,
+                f"{PATH}/128_05_40_0_0_0_6_0_0.99_c1/output/model/{model_name}_1/best_squared_error_metric"
+            )
 
-        retrain_freeze_beat_classification(
-            0,
-            model_name,
-            log_dir,
-            model_dir,
-            datastore_dict,
-            True,
-            train_directory,
-            eval_directory,
-            128,
-            4,
-            2,
-            100,
-            "/media/xuandung-ai/Data_4T1/AI-Database/Research/QRS_classification/TinyML-HeartBeat/240529_NSV_bk/128_05_40_0_0_0_6_0_0.99_c1/output/model/beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5_1/best_squared_error_metric"
-        )
+        if run_ec57:
+            # region ec57
+            checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)
+            output_ec57_directory = '{}/ec57/{}/'.format(output_dir, model_name)
+            if not os.path.isdir(output_ec57_directory):
+                os.makedirs(output_ec57_directory)
+            try:
+                run_ec57_tune(use_gpu_index=0,
+                              model_name=model_name,
+                              datastore_file=datastore_file,
+                              checkpoint_dir=checkpoint_dir,
+                              test_ec57_dir=cf.DB_TESTING,
+                              output_ec57_directory=output_ec57_directory,
+                              physionet_directory=cf.PATH_DATA_EC57,
+                              overlap=5,
+                              num_of_process=2)
 
-        # train_model = getattr(beat_model,
-        #                       'beat_concat_seq_add_more2_128Hz')(
-        #     feature_len=feature_len,
-        #     # num_of_class=len(beat_class),
-        #     num_of_class=5,
-        #     from_logits=False,
-        #     filters_rhythm_net=num_filters,
-        #     num_loop=num_loop,
-        #     rate=float(_qrs_model_path[-1]),
-        #     # name='beat_concat_seq_add_more2_other'
-        # )
-        #
-        # train_model.summary()
-        # train_model.load_weights(pretrain_checkpoint_dir)
-        # test_model = beat_model.freeze_model(train_model, num_class=len(beat_class.keys()))
-        # optimizer = keras.optimizers.Adam(learning_rate=1e-3)
-        # loss = keras.losses.CategoricalCrossentropy(from_logits=False)
-        # # if from_logits:
-        # #     metrics = [
-        # #         ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
-        # #         CustomRecall(name='recall'),
-        # #         CustomPrecision(name='precision'),
-        # #         # CustomCategoricalAccuracy(name='accuracy')
-        # #     ]
-        # #     beat = [c for _, c in enumerate(beat_class.keys())]
-        # #     for i in range(len(beat_class)):
-        # #         metrics.append(CustomRecall(class_id=i, name='{}_Se'.format(beat[i])))
-        # #         metrics.append(CustomPrecision(class_id=i, name='{}_P'.format(beat[i])))
-        # # else:
-        # metrics = [
-        #     keras.metrics.CategoricalAccuracy(name='accuracy'),
-        #     # ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
-        #     keras.metrics.Recall(name='recall'),
-        #     keras.metrics.Precision(name='precision')
-        # ]
-        # beat = [c for _, c in enumerate(beat_class.keys())]
-        # for i in range(len(beat_class)):
-        #     metrics.append(keras.metrics.Recall(class_id=i, name='{}_Se'.format(beat[i])))
-        #     metrics.append(keras.metrics.Precision(class_id=i, name='{}_P'.format(beat[i])))
-        #
-        # test_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-        #
-        # test_model.fit(x=train_dataset,
-        #                 # # epochs=begin_at_epoch + i_epoch_num + 1,
-        #                 epochs=20,
-        #                 # verbose=0,
-        #                 # callbacks=[log_callback],  # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
-        #                 # validation_data=val_dataset,
-        #                 # validation_freq=[valid_freq * (x + 1) for x in
-        #                 #                  range((begin_at_epoch + epoch_num) // valid_freq)],
-        #                 # class_weight=cf.CLASS_WEIGHTS,
-        #                 # initial_epoch=begin_at_epoch
-        #                 )
-    #
-    # return layer_output
+                # endregion
+                # region check
+                num_class = len(beat_class.keys())
+                squared_error_gross = 0
+                squared_error_average = 0
+                for f in cf.DB_TESTING:
+                    f = output_ec57_directory + "/{}".format(f[0])
+                    path_out = '{}/{}_QRS_report_line.out'.format(f, os.path.basename(f))
+                    file_out = open(path_out)
+                    content = file_out.readlines()
+                    gross_value = re.findall(r'[-+]?\d*\.\d+|\d+|[-]', content[-5])
+                    average_value = re.findall(r'[-+]?\d*\.\d+|\d+|[-]', content[-4])
 
+                    _keys = ["N(se)", "N(p+)", "V(se)", "V(p+)", "S(se)", "S(p+)"]
 
-def main():
-    pretrain_checkpoint_dir = f'{output_dir}/model/{model_name}_1/best_squared_error_metric/{model_name}-epoch-36.weights.h5'
-    raw_data = ''
-    get_output_from_pretrained_model(pretrain_checkpoint_dir, raw_data)
+                    for n, k in enumerate(_keys):
+                        if n < len(gross_value) and \
+                                "-" not in gross_value[n] and \
+                                (num_class < 0 or n < num_class * 2):
+                            squared_error_gross += np.square(1 - float(gross_value[n]) / 100)
+                            squared_error_average += np.square(1 - float(average_value[n]) / 100)
+                        elif n < len(gross_value) and \
+                                "-" in gross_value[n] and \
+                                (num_class < 0 or n < num_class * 2):
+                            squared_error_gross += np.square(1 - float(0) / 100)
+                            squared_error_average += np.square(1 - float(0) / 100)
+
+                fstatus = open(output_ec57_directory + '/squared_error.txt', 'w')
+                fstatus.writelines('squared_error_gross: {:.6f}\n'.format(squared_error_gross))
+                fstatus.writelines('squared_error_average: {:.6f}\n'.format(squared_error_average))
+                fstatus.close()
+                # endregion
+
+            except Exception as err:
+                print('Error at run_ec57:', err)
 
 
 if __name__ == '__main__':
@@ -147,6 +142,4 @@ if __name__ == '__main__':
     output_dir = PATH + '/128_05_40_0_0_0_5_0_0.99_c1/output/'
     model_name = 'beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5'
 
-    main()
-
-
+    retrain_model(retrain=False, run_ec57=True)

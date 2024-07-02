@@ -620,7 +620,7 @@ CLASS_WEIGHTS = {
 
 OVERLAB_IN_FILE = 3
 
-PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
+PATH_DATA_EC57 = '/media/xuandung-ai/Data_4T1/AI-Database/PhysionetData/'
 DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
         ['nstdb', 'atr', 'atr'],
