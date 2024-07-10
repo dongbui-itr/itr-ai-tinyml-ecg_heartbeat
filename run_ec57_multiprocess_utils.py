@@ -1082,10 +1082,10 @@ def beat_classification(beat_model,
     beat_inv = {i: k for i, k in enumerate(beat_class.keys())}
     beat_ind = {k: i for i, k in enumerate(beat_class.keys())}
 
-    while samp_to <= header.sig_len:
+    while samp_to < header.sig_len:
         try:
-            if header.sig_len - samp_from <= 0:
-                break
+            # if header.sig_len - samp_from <= 0:
+            #     break
 
             # region Process
             samp_len = min(event_len, (header.sig_len - samp_from))
@@ -1129,8 +1129,11 @@ def beat_classification(beat_model,
             beat_label_len = beat_feature_len // beat_num_block
             # data_index = np.arange(beat_feature_len)[None, :] + \
             #              np.arange(0, data_len, beat_feature_len4)[:, None]
+            # data_index = np.arange(beat_feature_len)[None, :] + \
+            #              np.arange(0, data_len - beat_feature_len, beat_feature_len - 61)[:, None]
+
             data_index = np.arange(beat_feature_len)[None, :] + \
-                         np.arange(0, data_len - beat_feature_len, beat_feature_len - 61)[:, None]
+                         np.arange(0, data_len - beat_feature_len // 2, beat_feature_len - 64)[:, None]
 
             _samp_from = (samp_from * sampling_rate) // fs_origin
             _samp_to = (samp_to * sampling_rate) // fs_origin

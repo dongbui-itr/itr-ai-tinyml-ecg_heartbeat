@@ -90,29 +90,29 @@ def run_ec57(use_gpu_index,
                        1024,
                        dir_image)
 
-                # process_beat_classification(i,
-                #        use_gpu_index,
-                #        file_list,
-                #        model_name,
-                #        checkpoint_dir,
-                #        datastore_dict,
-                #        ext_ai,
-                #        True,
-                #        False,
-                #        0,
-                #        overlap,
-                #        1024,
-                #        dir_image)
+                process_beat_classification(i,
+                       use_gpu_index,
+                       file_list,
+                       model_name,
+                       checkpoint_dir,
+                       datastore_dict,
+                       ext_ai,
+                       True,
+                       False,
+                       0,
+                       overlap,
+                       1024,
+                       dir_image)
 
-                arg_list.append(arg)
+                # arg_list.append(arg)
 
             process_start_time = time.time()
-            with Pool(processes=num_of_process) as pool:
-                # print same numbers in arbitrary order
-                for log_lines in pool.starmap(process_beat_classification, arg_list):
-                    log_eval.writelines(log_lines)
+            # with Pool(processes=num_of_process) as pool:
+            #     # print same numbers in arbitrary order
+            #     for log_lines in pool.starmap(process_beat_classification, arg_list):
+            #         log_eval.writelines(log_lines)
 
-            log_eval.writelines(log_lines)
+            # log_eval.writelines(log_lines)
 
             process_end_time = time.time()
             str_log = 'multiprocess {} take {} seconds\n'.format(basename(os.path.dirname(file_names[0])),

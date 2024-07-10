@@ -46,7 +46,8 @@ def beat_annotations(annotation):
     # !		Ventricular flutter wave
     # |		Isolated QRS-like artifact
 
-    g = ['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', '/', 'f', 'Q', '?', '!', '|', 'P']
+    # g = ['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', '/', 'f', 'Q', '?', '!', '|', 'P']
+    g = ['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', '/', 'f', 'Q', '?']
 
     ids = np.in1d(annotation.symbol, g)
     samples = annotation.sample[ids]
