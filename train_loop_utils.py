@@ -17,7 +17,7 @@ import numpy as np
 import model as beat_model
 import inputs as dat_model
 from utils.logging import TextLogging
-from all_config import CLASS_WEIGHTS, PATH_DATA_EC57, FILE_NAME
+from all_config import CLASS_WEIGHTS, CLASS_WEIGHTS_RETRAIN
 
 import keras
 
@@ -785,6 +785,7 @@ def train_beat_classification(use_gpu_index,
 
     with tf.device('/gpu:{}'.format(use_gpu_index if use_gpu_index >= 0 else 0)):
         # for i_epoch_num in range(epoch_num):
+        print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
         train_model.fit(x=train_dataset,
                         # epochs=begin_at_epoch + i_epoch_num + 1,
                         epochs=begin_at_epoch + epoch_num,
@@ -1582,7 +1583,7 @@ def retrain_freeze_beat_classification(use_gpu_index,
                         validation_data=val_dataset,
                         validation_freq=[valid_freq * (x + 1) for x in
                                          range((begin_at_epoch + epoch_num) // valid_freq)],
-                        class_weight=CLASS_WEIGHTS,
+                        class_weight=CLASS_WEIGHTS_RETRAIN,
                         initial_epoch=begin_at_epoch)
         # begin_at_epoch = begin_at_epoch + i_epoch_num
         #

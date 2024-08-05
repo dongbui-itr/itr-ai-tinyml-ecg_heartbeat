@@ -26,15 +26,15 @@ def train():
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV_2/'.format('240527') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240623') #beat_concat_seq_add_more2_128Hz + AFIB
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240529') #beat_concat_seq_add_more2_128Hz + AFIB BEST QRS
-    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240722')
+    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240718')
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_rm/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
-    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
+    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
 
     # sl.split_data(MEDIA_PATH)
 
@@ -56,7 +56,7 @@ def train():
         '128_05_40_0_0_0_5_0_0.99', #240718_NSV
     ]
     BATCH_SIZE_TRAINING = [
-        128,
+        64,
     ]
 
     MODEL = [
@@ -84,7 +84,7 @@ def train():
         pt_bk = copy.copy(pt)
         flag_reset_data = False
         while try_on_with_dataset < num_try_on_with_dataset:
-        # while count < 1:
+        # while count < 5:
             count += 1
             # sl.split_data_2(DATA_SOURCE, MEDIA_PATH, count)
             # pt = pt + '_d{}_c{}'.for/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/240529_NSV//128_05_40_0_0_0_5_0_0.99_c1/datastore.txt'mat(k, count)
@@ -172,9 +172,9 @@ def train():
             #                                               org_num_processes=os.cpu_count(),
             #                                               org_num_shards=os.cpu_count())
             # # endregion random create data_input
-
-            with open(datastore_file, 'r') as json_file:
-                datastore_dict = json.load(json_file)
+            #
+            # with open(datastore_file, 'r') as json_file:
+            #     datastore_dict = json.load(json_file)
 
             for i, model_name in enumerate(MODEL):
                 model_dir = '{}/model/{}_{}'.format(output_dir, model_name, count)

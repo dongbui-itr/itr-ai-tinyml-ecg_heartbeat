@@ -19,6 +19,7 @@ from scipy.signal import sosfilt
 from scipy.signal import zpk2sos
 from utils import define
 from scipy.signal import find_peaks
+from all_config import MIN_RR_INTERVAL
 
 
 def beat_annotations(annotation):
@@ -624,7 +625,7 @@ def remove_short_event(list_event,
     return list_event, tachy_len, brady_len, afib_len, pause_len
 
 
-def beat_select(ibeats, isymbols, iamps, buf_bwr_ecg, fs, thr=0.5, pre_peak=2):
+def beat_select(ibeats, isymbols, iamps, buf_bwr_ecg, fs, thr=0.25, pre_peak=2):
     """
 
     """
@@ -657,8 +658,51 @@ def beat_select(ibeats, isymbols, iamps, buf_bwr_ecg, fs, thr=0.5, pre_peak=2):
                 isymbols[i] = "Q"
                 continue
 
-            if amp >= mean_amp * thr * 3 and isymbols[i] not in ["Q", "V"]:
+            # if amp >= mean_amp * thr * 8 and isymbols[i] not in ["Q", "V"]:
+            #     isymbols[i] = "Q"
+
+        symbol = isymbols[i]
+        selected_beats.append(peak)
+        selected_symbols.append(symbol)
+        selected_amps.append(amp)
+
+    return np.asarray(selected_beats), np.asarray(selected_symbols), np.asarray(selected_amps)
+
+
+def beat_select_2(ibeats, isymbols, iamps, buf_bwr_ecg, fs, thr=0.3, pre_peak=2):
+    """
+
+    """
+    selected_beats = []
+    selected_amps = []
+    selected_symbols = []
+    st = 0
+
+    selected_beats.append(ibeats[st])
+    selected_symbols.append(isymbols[st])
+    selected_amps.append(iamps[st])
+    for i in range(st + 1, len(ibeats)):
+        peak = ibeats[i]
+        amp = iamps[i]
+        if abs(peak - selected_beats[-1]) < MIN_RR_INTERVAL * fs and is_t_wave(buf_bwr_ecg, peak, selected_beats[-1], fs):
+            continue
+
+        cnt = 0
+        mean_amp = 0
+        for st in reversed(range(i)):
+            mean_amp += iamps[st]
+            cnt += 1
+            if cnt > pre_peak:
+                break
+
+        if cnt > 0:
+            mean_amp = (mean_amp / cnt)
+            if amp < mean_amp * thr:
                 isymbols[i] = "Q"
+                continue
+
+            # if amp >= mean_amp * thr * 8 and isymbols[i] not in ["Q", "V"]:
+            #     isymbols[i] = "Q"
 
         symbol = isymbols[i]
         selected_beats.append(peak)

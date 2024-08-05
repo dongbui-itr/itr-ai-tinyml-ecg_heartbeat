@@ -600,23 +600,38 @@ TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 CLASS_TYPES = ['N', 'V', 'S']
 
 CLASS_WEIGHTS = {
-        0: 0.5,
-        1: 2,
-        2: 2,
+        0: 1,
+        1: 3,
+        2: 1,
         3: 6,
         4: 1
     }
 
+CLASS_WEIGHTS_RETRAIN = {
+        0: 1,
+        1: 3,
+        2: 2,
+    }
+
 OVERLAB_IN_FILE = 3
+OVERLAB = 1
 
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
-        # ['nstdb', 'atr', 'atr'],
-        # ['ahadb', 'atr', 'atr'],
-        # ['escdb', 'atr', 'atr'],
-        # ['afdb', 'qrs', 'atr'],
+        ['nstdb', 'atr', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
+        ['afdb', 'qrs', 'atr'],
     ]
 
-FILE_NAME = '109'
+
+SAMP_FROM = 0
+SAMP_TO = 0
+
+# FILE_NAME = '119e00'
+# DEBUG = True
+
+FILE_NAME = '*'
 DEBUG = False
+
