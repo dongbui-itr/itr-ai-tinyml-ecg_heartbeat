@@ -563,14 +563,14 @@ def _process_sample(use_gpu_index,
                     if symbol_true[i] in ['Q']:
                         __symbol_true.append('ARTIFACT')
                         __beat_true.append(beat_true[i])
-                    elif symbol_true[i] in CLASS_TYPES:
-                        __symbol_true.append('N')
-                        # __symbol_true.append(symbol_true[i])
-                        __beat_true.append(beat_true[i])
-                        flag_debug = True
+                    # elif symbol_true[i] in CLASS_TYPES:
+                    #     __symbol_true.append('N')
+                    #     # __symbol_true.append(symbol_true[i])
+                    #     __beat_true.append(beat_true[i])
+                    #     flag_debug = True
                     elif symbol_true[i] in ['M']:
                         continue
-                    else: #symbol_true[i] in ['N', 'S', 'R']
+                    else: #symbol_true[i] in ['N', 'S', 'R', 'V']
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
                         # continue
@@ -672,13 +672,19 @@ def _process_sample(use_gpu_index,
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
             #                 writer=writer)
 
-            np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            _process_data = np.concatenate((process_data, process_data/3), axis=0)
+            _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
+            np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
+                            label_buffer=np.reshape(_process_label_symbol, (-1, num_block)),
                             writer=writer)
 
-            np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
-                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                            writer=writer)
+            # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
+
+            # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
 
             # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
@@ -1729,12 +1735,9 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     train_beat_type = dict()
 
     #open log_data.json
-    # with open(media_dir + 'log_data_noise.json', 'r') as fp:
     with open(data_model_dir + 'log_data_noise.json', 'r') as fp:
         list_data = json.load(fp)
 
-    # all_file_train = glob(data_dir + '/*/*/*.{}'.format(EXT_BEAT))
-    # all_file_train += glob(data_dir + '/*/*/*.{}'.format(EXT_BEAT_EVAL))
     all_file_train = []
     res = {}
     keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
@@ -1764,13 +1767,23 @@ def create_tfrecord_from_portal_event2(data_model_dir,
             ds_train_study_info[studyFid]["hasComplexBeat"] = []
             ds_train_study_info[studyFid]["eventFid"] = []
             ds_train_study_info[studyFid]["file"] = []
-            for label in keys_class : #datastore_dict["beat_class"].keys():
-                ds_train_study_info[studyFid][label] = 0
+            _type = f.split('export_')[-1].split('/')[0]
+
+            if _type in ['RVE', 'RSE']:
+                _type = 'R'
+            elif _type in ['ARTIFACT', 'NOISE']:
+                _type = 'Q'
+
+            for label in ['N', 'R', 'V', 'S', 'Q'] : #datastore_dict["beat_class"].keys():
+                try:
+                    ds_train_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
+                except:
+                    ds_train_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
 
         ds_train_study_info[studyFid]["eventFid"].append(eventFid)
         ds_train_study_info[studyFid]["file"].append(f)
         ds_train_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
-        for label in keys_class: #datastore_dict["beat_class"].keys():
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
             if label in num_beat_type:
                 ds_train_study_info[studyFid][label] += num_beat_type[label]
                 all_train_beat_type[label] += num_beat_type[label]
@@ -1784,14 +1797,14 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         if studyFid in list_get:
             continue
 
-        for label in keys_class: #datastore_dict["beat_class"].keys():
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
             if not 'NOTABEAT' in label:
                 # if label == 'Q':
                 #     _label = 'ARTIFACT'
                 # else:
                 #     _label = label
 
-                train_beat_type[label] += ds_train_study_info[studyFid][_label]
+                train_beat_type[label] += ds_train_study_info[studyFid][label]
 
         ds_file["train"]["studyFid"].append(studyFid)
         ds_file["train"]["eventFid"] += ds_train_study_info[studyFid]["eventFid"]
@@ -1806,7 +1819,7 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     all_eval_beat_type = dict()
     all_file_eval = []
     keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
-    for label in keys_class: #datastore_dict["beat_class"].keys():
+    for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
         if not 'NOTABEAT' in label:
             _label = label
             if label == 'ARTIFACT':
@@ -1831,13 +1844,23 @@ def create_tfrecord_from_portal_event2(data_model_dir,
             ds_eval_study_info[studyFid]["hasComplexBeat"] = []
             ds_eval_study_info[studyFid]["eventFid"] = []
             ds_eval_study_info[studyFid]["file"] = []
-            for label in keys_class: #datastore_dict["beat_class"].keys():
-                ds_eval_study_info[studyFid][label] = 0
+            _type = f.split('export_')[-1].split('/')[0]
+
+            if _type in ['RVE', 'RSE']:
+                _type = 'R'
+            elif _type in ['ARTIFACT', 'NOISE']:
+                _type = 'Q'
+
+            for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+                try:
+                    ds_eval_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
+                except:
+                    ds_eval_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
 
         ds_eval_study_info[studyFid]["eventFid"].append(eventFid)
         ds_eval_study_info[studyFid]["file"].append(f)
         ds_eval_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
-        for label in keys_class: #datastore_dict["beat_class"].keys():
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
             if label in num_beat_type:
                 ds_eval_study_info[studyFid][label] += num_beat_type[label]
                 all_eval_beat_type[label] += num_beat_type[label]
@@ -1851,7 +1874,7 @@ def create_tfrecord_from_portal_event2(data_model_dir,
         if studyFid in list_get:
             continue
 
-        for label in keys_class: #datastore_dict["beat_class"].keys():
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
             if not 'NOTABEAT' in label:
                 # if label == 'Q':
                 #     _label = 'ARTIFACT'

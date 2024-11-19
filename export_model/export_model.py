@@ -16,7 +16,8 @@ def main():
                        # "beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5_2/best_squared_error_metric/beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5-epoch-8.weights.h5")
 
     model_name = os.listdir(beat_model_path + "/output/model")[0]
-    beat_checkpoint = beat_model_path + "/model/{}/best_squared_error_metric".format(model_name)
+    # beat_checkpoint = beat_model_path + "/model/{}/best_squared_error_metric".format(model_name)
+    beat_checkpoint = beat_model_path + "/model/{}/last".format(model_name)
     beat_datastore_file = beat_model_path + '/datastore.txt'
 
     _case = model_name.replace('/', '').replace('=', '').replace('-', '').replace('_', '').replace('.', '')
@@ -45,7 +46,9 @@ def main():
     func = func[:-1]
 
     day_export = beat_checkpoint.split('/')[-6]
+    day_export = day_export.split('_')[0]
     day_export = datetime.datetime.strptime(day_export, '%y%m%d')
+    # day_export = datetime.datetime.strptime(day_export, '%y%m%d')
     num_loop = int(_qrs_model_path[m])
     num_filters = np.asarray([int(i) for i in _qrs_model_path[m + 1].split('.')], dtype=int)
     try:
@@ -68,6 +71,8 @@ def main():
                                           num_loop,
                                           0.5,
                                           False)
+
+    last_model = tf.train.latest_checkpoint(beat_checkpoint)
 
     beat_model.load_weights(tf.train.latest_checkpoint(beat_checkpoint)).expect_partial()
 

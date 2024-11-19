@@ -4,13 +4,19 @@ import os
 from glob import glob
 
 
-def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240722'), sampling_rate='128'):
-    dbs = ['mitdb', 'nstdb', 'ahadb', 'escdb', 'afdb']
+# def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240722'), sampling_rate='128'):
+def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format('241117'), sampling_rate='128'):
+# def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('241114'), sampling_rate='128'):
+    dbs = ['mitdb', 'nstdb', 'escdb', 'ahadb', 'afdb']
+    print(dbs)
     # for db in dbs:
     list_ec57 = np.sort(np.asarray(glob(data_path + '/*_c*/*/*/*/*/{}_*_line.out'.format('*'))))
 
-    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240722_NSV.csv'.format('result')
+    # excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240722_NSV.csv'.format('result')
+    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_241117_NSV.csv'.format('result')
+    # excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240712_NSV_bk.csv'.format('result')
     excel_file = open(excel_file_path, 'w')
+
 
     line = 'CKT_name'
     for db in dbs:
@@ -31,6 +37,7 @@ def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}
 
 
         fp = open(file)
+        # print(file)
         for line in fp.readlines():
             if 'Gross' in line:
                 import re

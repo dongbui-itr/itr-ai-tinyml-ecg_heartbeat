@@ -37,6 +37,7 @@ from post_processing import post_processing_beats_and_rhythms
 from shutil import copyfile
 from all_config import EXT_BEAT_EVAL, MIN_RR_INTERVAL, DEBUG, OVERLAB, SAMP_FROM, SAMP_TO
 
+from algs.PanTompkins_classification import *
 
 def bxb(predict_sample, predict_symbol, ref_sample, ref_symbol, epsilon):
     # Find true sample
@@ -1083,6 +1084,10 @@ def beat_classification(beat_model,
     beat_inv = {i: k for i, k in enumerate(beat_class.keys())}
     beat_ind = {k: i for i, k in enumerate(beat_class.keys())}
 
+    # ptk_func = PanTompkinsClassification(data_dir, file, db[1],
+    #                                      view_signal=True,
+    #                                      )
+
     while samp_to < header.sig_len:
         print(f'{file_name} : {samp_from} - {samp_to}')
         try:
@@ -1290,6 +1295,11 @@ def beat_classification(beat_model,
                             break
 
             # samp_from = samp_to
+
+            # #SVM BEAT CLASSIFICATION#
+            # samples_pt, symbols_pt, samples_pt_cali = self.svm_classification(self.ecg, self.fs,
+            #                                                                   np.asarray(_samples_pt),
+            #                                                                   samples, symbols)
 
             samp_from = samp_to - int(OVERLAB * header.fs) * 2
 
@@ -1705,7 +1715,7 @@ def process_beat_classification(process_index,
             log_lines.append(str_log)
             if write_mit_annotation:
                 try:
-                    total_symbol[np.flatnonzero(total_symbol == 'ARTIFACT ')] = '|'
+                    total_symbol[np.flatnonzero(total_symbol == 'ARTIFACT')] = '|'
                     annotation2 = wf.Annotation(record_name=basename(file_name),
                                                 extension=ext_ai,
                                                 sample=np.asarray(total_peak),
@@ -1861,7 +1871,6 @@ def process_beat_classification_retrain(process_index,
     return log_lines
 
 
-
 def process_beat_classification_event(process_index,
                                       use_gpu_index,
                                       file_list,
@@ -1986,8 +1995,6 @@ def process_beat_classification_event(process_index,
                                                                   datastore_dict,
                                                                   overlap,
                                                                   dir_image)
-
-
 
         if fs_origin > 0:
             if len(total_peak) == 0:

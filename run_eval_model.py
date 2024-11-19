@@ -41,26 +41,26 @@ def portal_run():
              dir_image=None)
 
 
-    # output_ec57_directory = beat_model_path + '/ec57-{}-{}/{}/'.format(data_model.MODE,
-    #                                                                    datetime.today().strftime("%y%m%d%H%M"),
-    #                                                                    model_name)
-    # if not os.path.isdir(output_ec57_directory):
-    #     os.makedirs(output_ec57_directory)
-    #
-    # dir_image = curr_dir + "/img"
-    # if not os.path.isdir(dir_image):
-    #     os.makedirs(dir_image)
-    #
-    # run_ec57(use_gpu_index=0,
-    #          model_name=model_name,
-    #          datastore_file=beat_datastore_file,
-    #          checkpoint_dir=beat_checkpoint,
-    #          test_ec57_dir=DB_TESTING,
-    #          output_ec57_directory=output_ec57_directory,
-    #          physionet_directory=physionet_directory,
-    #          overlap=0,
-    #          num_of_process=8,
-    #          dir_image=None)
+    output_ec57_directory = beat_model_path + '/ec57-{}-{}/{}/'.format(data_model.MODE,
+                                                                       datetime.today().strftime("%y%m%d%H%M"),
+                                                                       model_name)
+    if not os.path.isdir(output_ec57_directory):
+        os.makedirs(output_ec57_directory)
+
+    dir_image = curr_dir + "/img"
+    if not os.path.isdir(dir_image):
+        os.makedirs(dir_image)
+
+    run_ec57(use_gpu_index=0,
+             model_name=model_name,
+             datastore_file=beat_datastore_file,
+             checkpoint_dir=beat_checkpoint,
+             test_ec57_dir=DB_TESTING,
+             output_ec57_directory=output_ec57_directory,
+             physionet_directory=physionet_directory,
+             overlap=0,
+             num_of_process=8,
+             dir_image=None)
 
     # # region check
     # num_class = 3

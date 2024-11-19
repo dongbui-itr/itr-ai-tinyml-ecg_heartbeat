@@ -61,6 +61,7 @@ def run_ec57(use_gpu_index,
 
             # file_names = glob(path2db + '/*.dat')
             file_names = glob(path2db + f'/{FILE_NAME}.dat')
+
             # Get rid of the extension
             file_names = [p[:-4] for p in file_names
                           if basename(p)[:-4] not in ['104', '102', '107', '217', 'bw', 'em', 'ma']

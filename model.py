@@ -2607,6 +2607,7 @@ def test_model():
     # model = beat_concat_seq_add_more2_128Hz(feature_len=feature_len,
     #                               num_of_class=num_of_class)
     model = beat_concat_seq2_add_more2_128Hz(feature_len=640,
+    # model = beat_depthwise2_128Hz(feature_len=640,
                                             # model = beat_concat_sequeeze_add_more2_128Hz(feature_len=640,
                                             num_of_class=5,
                                             from_logits=False,
