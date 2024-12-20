@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks
 import inputs as data_model
-import model as model
+# import model as model
+import model_2D as model
 import model_old as model_old
 import wfdb as wf
 from utils.reprocessing import (
@@ -1089,7 +1090,7 @@ def beat_classification(beat_model,
     #                                      )
 
     while samp_to < header.sig_len:
-        print(f'{file_name} : {samp_from} - {samp_to}')
+        # print(f'{file_name} : {samp_from} - {samp_to}')
         try:
             if header.sig_len - samp_from <= 0:
                 break
@@ -1137,7 +1138,7 @@ def beat_classification(beat_model,
             beat_label_len = beat_feature_len // beat_num_block
 
             data_index = np.arange(beat_feature_len)[None, :] + \
-                         np.arange(0, data_len - beat_feature_len, beat_feature_len - 61)[:, None]
+                         np.arange(0, data_len - beat_feature_len, beat_feature_len - 120)[:, None]
 
             buf_frame = []
             for fr in data_model.OFFSET_FRAME_BEAT_2:
@@ -1150,11 +1151,13 @@ def beat_classification(beat_model,
                     data_index_frame = np.concatenate((data_index_frame, data_index + fr))
 
             buf_frame = np.asarray(buf_frame)
+            buf_frame = np.expand_dims(buf_frame, 1)
+            buf_frame = np.expand_dims(buf_frame, -1)
             group_beat_prob = beat_model.predict(buf_frame)
             group_beat_candidate = np.argmax(group_beat_prob, axis=-1)
             group_beat_candidate = group_beat_candidate.reshape((-1, len(data_index), beat_num_block))
             label_index = np.arange(beat_label_len)[None, :] + \
-                          np.arange(0, beat_feature_len, beat_label_len)[:, None]
+                          np.arange(0, beat_feature_len - beat_label_len, beat_label_len)[:, None]
 
             group_bwr_frame = buf_ecg[data_index]
             beats = []
@@ -1274,12 +1277,12 @@ def beat_classification(beat_model,
             # endregion BEAT
 
             # rhythm_candidate_pred_draw = rhythm_candidate_pred_draw.flatten()
-            if DEBUG:
-                plt.plot(buf_ecg)
-                plt.plot(beats, buf_ecg[beats], 'ro')
-                plt.plot(_beats, buf_ecg[_beats], 'b*')
-                [plt.annotate(symbols[i], (beats[i], buf_record[beats[i]])) for i in range(len(symbols))]
-                plt.show()
+            # if DEBUG:
+            #     plt.plot(buf_ecg)
+            #     plt.plot(beats, buf_ecg[beats], 'ro')
+            #     plt.plot(_beats, buf_ecg[_beats], 'b*')
+            #     [plt.annotate(symbols[i], (beats[i], buf_record[beats[i]])) for i in range(len(symbols))]
+            #     plt.show()
 
             if len(beats) > 0:
                 beats = (beats * fs_origin) // sampling_rate
@@ -1317,17 +1320,22 @@ def beat_classification(beat_model,
     total_symbol = np.asarray(total_symbol)
 
     if DEBUG:
+
         record = wf.rdsamp(file_name, channels=[channel_ecg])
         buf_record = np.nan_to_num(record[0][:, 0])
         fs_origin = record[1].get('fs')
         ann = wf.rdann(file_name, 'atr')
         ann_samples, ann_symbols = beat_annotations(ann)
 
-        plt.plot(buf_record)
-        plt.plot(total_beat, buf_record[total_beat], 'ro')
-        plt.plot(ann_samples, buf_record[ann_samples], 'b*')
-        [plt.annotate(total_symbol[i], (total_beat[i], buf_record[total_beat[i]])) for i in range(len(total_beat))]
-        plt.show()
+        dif_ann = [i for i in total_beat if len(np.flatnonzero(np.abs(i - ann_samples) < 0.08 * fs_origin)) == 0]
+        if len(dif_ann) > 0:
+            print(dif_ann)
+            plt.title(os.path.basename(file_name))
+            plt.plot(buf_record)
+            plt.plot(total_beat, buf_record[total_beat], 'ro')
+            plt.plot(ann_samples, buf_record[ann_samples], 'b*')
+            [plt.annotate(total_symbol[i], (total_beat[i], buf_record[total_beat[i]])) for i in range(len(total_beat))]
+            plt.show()
 
     return total_beat, total_symbol, fs_origin
 
@@ -1673,7 +1681,11 @@ def process_beat_classification(process_index,
                                                   False)
                 # beat_model.summary()
                 import glob
-                checkpoint = glob.glob(checkpoint_dir + '/*.h5')[0]
+                try:
+                    checkpoint = glob.glob(checkpoint_dir + '/*.h5')[0]
+                except Exception as err:
+                    print("{}\n{}".format(checkpoint_dir, err))
+                    checkpoint = glob.glob(checkpoint_dir.replace('best_squared_error_metric', 'last') + '/*.h5')[0]
                 # beat_model = keras.models.load_model(ckt)
 
             # beat_model.load_weights(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()

@@ -61,15 +61,16 @@ CLASS_TYPES = ['N', 'V', 'S', 'R']
 CLASS_WEIGHTS = {
         0: 1,
         1: 4,
-        2: 1,
+        # 2: 2,
+        2: 3
         # 3: 6,
         # 4: 1
     }
 
 CLASS_WEIGHTS_RETRAIN = {
         0: 1,
-        1: 5,
-        2: 2,
+        1: 3,
+        2: 1,
     }
 
 OVERLAB_IN_FILE = 3
@@ -78,7 +79,7 @@ OVERLAB = 1
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
         ['mitdb', 'atr', 'atr'],
-        # ['nstdb', 'atr', 'atr'],
+        ['nstdb', 'atr', 'atr'],
         ['ahadb', 'atr', 'atr'],
         ['escdb', 'atr', 'atr'],
         ['afdb', 'qrs', 'atr'],

@@ -14,7 +14,8 @@ from glob import glob
 from random import shuffle
 import numpy as np
 
-import model as beat_model
+# import model as beat_model
+import model_2D as beat_model
 import inputs as dat_model
 from utils.logging import TextLogging
 from all_config import CLASS_WEIGHTS, CLASS_WEIGHTS_RETRAIN
@@ -636,7 +637,8 @@ def train_beat_classification(use_gpu_index,
         sample = proto["sample"]
         label = proto["label"]
         label = tf.one_hot(label, class_num)
-        return sample, label
+        # return sample, label
+        return tf.expand_dims(tf.expand_dims(sample, axis=0), axis=-1), tf.expand_dims(label, axis=0)
 
     # with tf.device("/cpu:0"):
     train_filenames = _get_tfrecord_filenames(train_directory, True)

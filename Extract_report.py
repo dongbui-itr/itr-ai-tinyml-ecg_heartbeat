@@ -3,9 +3,10 @@ import os
 
 from glob import glob
 
+DATE = '241205'
 
 # def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240722'), sampling_rate='128'):
-def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format('241117'), sampling_rate='128'):
+def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(DATE), sampling_rate='250'):
 # def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('241114'), sampling_rate='128'):
     dbs = ['mitdb', 'nstdb', 'escdb', 'ahadb', 'afdb']
     print(dbs)
@@ -13,7 +14,7 @@ def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}
     list_ec57 = np.sort(np.asarray(glob(data_path + '/*_c*/*/*/*/*/{}_*_line.out'.format('*'))))
 
     # excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240722_NSV.csv'.format('result')
-    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_241117_NSV.csv'.format('result')
+    excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_{}_NSV.csv'.format('result', DATE)
     # excel_file_path = '/mnt/Project/ECG/Source_Dong/project_tinyml_4Dong/itr-ai-tinyml-ecg_heartbeat_3/Report/{}_240712_NSV_bk.csv'.format('result')
     excel_file = open(excel_file_path, 'w')
 
@@ -57,10 +58,10 @@ def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}
         for db in dbs:
             # if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 98.5 or float(tmp_dict[key][db]['P+']) <= 99)) or \
             #         (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 88)):
-            if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 98 or float(tmp_dict[key][db]['P+']) <= 98.5)) or \
-                    (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 75)):
-                flag = False
-                break
+            # if (db == 'mitdb' and (float(tmp_dict[key][db]['Se']) < 98 or float(tmp_dict[key][db]['P+']) <= 98.5)) or \
+            #         (db == 'nstdb' and (float(tmp_dict[key][db]['Se']) < 80 or float(tmp_dict[key][db]['P+']) < 75)):
+            #     flag = False
+            #     break
             try:
                 line += ', {}, {}'.format(tmp_dict[key][db]['Se'], tmp_dict[key][db]['P+'])
                 line += ', {}, {}'.format(tmp_dict[key][db]['VSe'], tmp_dict[key][db]['VP+'])

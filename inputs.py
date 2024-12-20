@@ -40,8 +40,8 @@ MODE = NEW_MODE
 OFFSET_FRAME_BEAT_2 = [0, 9]
 MAX_CHANNEL = 3
 ADD_ARTIFACT = True
-BAND_PASS_FILTER = [1.0, 30.0]
-RHYTHM_BAND_PASS_FILTER = [1.0, 30.0]
+BAND_PASS_FILTER = [0.5, 30.0]
+RHYTHM_BAND_PASS_FILTER = [0.5, 30.0]
 CLIP_RANGE = [-5.0, 5.0]
 RHYTHM_CLIP_RANGE = [-5.0, 5.0]
 MAX_NUM_IMG_SAVE = 100
@@ -473,7 +473,7 @@ def _process_sample(use_gpu_index,
                     writer,
                     output_directory,
                     save_image,
-                    debug=False):
+                    debug=False ):
     file_name = file_path
     # if 'event-manual-02-19-23-03-00-38-24-0-1' in file_name or 'export_S' in file_name or 'export_V' in file_name:
     #     a = 100
@@ -563,22 +563,23 @@ def _process_sample(use_gpu_index,
                     if symbol_true[i] in ['Q']:
                         __symbol_true.append('ARTIFACT')
                         __beat_true.append(beat_true[i])
-                    # elif symbol_true[i] in CLASS_TYPES:
-                    #     __symbol_true.append('N')
-                    #     # __symbol_true.append(symbol_true[i])
-                    #     __beat_true.append(beat_true[i])
-                    #     flag_debug = True
-                    elif symbol_true[i] in ['M']:
-                        continue
-                    else: #symbol_true[i] in ['N', 'S', 'R', 'V']
+                    # # elif symbol_true[i] in CLASS_TYPES:
+                    # #     __symbol_true.append('N')
+                    # #     # __symbol_true.append(symbol_true[i])
+                    # #     __beat_true.append(beat_true[i])
+                    # #     flag_debug = True
+                    # elif symbol_true[i] in ['M']:
+                    #     continue
+                    # else: #symbol_true[i] in ['N', 'S', 'R', 'V']
+                    elif symbol_true[i] in ['N', 'S', 'R', 'V']:
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
                         # continue
 
                 symbol_true = np.asarray(__symbol_true)
-                beat_true = np.asarray(beat_true)
+                beat_true = np.asarray(__beat_true)
 
-            if debug and flag_debug and 'export_S' in file_name:
+            if debug: #and flag_debug and 'export_S' in file_name:
                 plt.plot(buf_ecg)
                 plt.plot(beat_true, buf_ecg[beat_true], 'r*')
                 [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
@@ -594,7 +595,7 @@ def _process_sample(use_gpu_index,
             data_index = np.arange(feature_len)[None, :] + \
                          np.arange(0, data_len, feature_len)[:, None]
             label_index = np.arange(label_len)[None, None, :] + \
-                          np.arange(0, feature_len, label_len)[None, :, None] + \
+                          np.arange(0, feature_len-label_len, label_len)[None, :, None] + \
                           np.arange(0, data_len, feature_len)[:, None, None]
 
             lbl_samp = np.full(data_len, ind["NOTABEAT"], dtype=int)
@@ -602,10 +603,12 @@ def _process_sample(use_gpu_index,
                 for a in sample_artifact:
                     a = (a * sampling_rate) // fs_origin
                     lbl_samp[a] = ind["ARTIFACT"]
-
-            lbl_samp[beat_true] = symbol_true
-            process_data = buf_ecg[data_index]
-            lbl_samp_frame = lbl_samp[label_index]
+            try:
+                lbl_samp[beat_true] = symbol_true
+                process_data = buf_ecg[data_index]
+                lbl_samp_frame = lbl_samp[label_index]
+            except Exception as err:
+                a=10
 
             process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int).flatten()
             res_db_dict[ds_type]["total_sample"] += len(process_data)
@@ -672,19 +675,19 @@ def _process_sample(use_gpu_index,
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
             #                 writer=writer)
 
-            _process_data = np.concatenate((process_data, process_data/3), axis=0)
-            _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
-            np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
-                            label_buffer=np.reshape(_process_label_symbol, (-1, num_block)),
+            # _process_data = np.concatenate((process_data, process_data/3), axis=0)
+            # _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
+            # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
+
+            np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
                             writer=writer)
 
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
+            np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                            writer=writer)
 
             # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
@@ -1672,7 +1675,7 @@ def create_tfrecord_from_portal_event2(data_model_dir,
     num_block = int(data_info.split('_')[2])
     block_len = int(feature_len // num_block)
 
-    assert (feature_len % num_block) == 0, print('feature_len not mod num_block')
+    # assert (feature_len % num_block) == 0, print('feature_len not mod num_block')
     tmp = feature_len
     step = 0
     while tmp % 2 == 0 and tmp > num_block:
