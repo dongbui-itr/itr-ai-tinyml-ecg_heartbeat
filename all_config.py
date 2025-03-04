@@ -59,12 +59,10 @@ TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 CLASS_TYPES = ['N', 'V', 'S', 'R']
 
 CLASS_WEIGHTS = {
-        0: 1,
+        0: 0.5,
         1: 4,
-        # 2: 2,
-        2: 3
-        # 3: 6,
-        # 4: 1
+        2: 5,
+        3: 6,
     }
 
 CLASS_WEIGHTS_RETRAIN = {

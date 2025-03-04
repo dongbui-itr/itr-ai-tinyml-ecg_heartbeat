@@ -1731,9 +1731,9 @@ def process_beat_classification(process_index,
                     annotation2 = wf.Annotation(record_name=basename(file_name),
                                                 extension=ext_ai,
                                                 sample=np.asarray(total_peak),
-                                                symbol=np.asarray(total_symbol),
+                                                symbol=list(total_symbol),
                                                 fs=fs_origin)
-                    annotation2.wrann(write_fs=True, write_dir=dirname(file_name))
+                    annotation2.wrann(write_fs=False, write_dir=dirname(file_name))
                 except Exception as err:
                     print(f'{file_name}: {err}')
 

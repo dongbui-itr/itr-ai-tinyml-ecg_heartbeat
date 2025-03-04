@@ -14,8 +14,7 @@ from multiprocessing import Pool
 from run_ec57_multiprocess_utils import (process_beat_rhythm_classification,
                                          process_beat_classification,
                                          process_beat_classification_2,
-                                         process_beat_classification_retrain,
-                                         process_beat_classification_event)
+                                         process_beat_classification_retrain )
 from all_config import EXT_BEAT_EVAL, FILE_NAME
 
 

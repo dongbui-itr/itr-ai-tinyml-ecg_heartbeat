@@ -98,6 +98,15 @@ def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250
     train_dataset = train_dataset.batch(32)
     train_dataset = train_dataset.prefetch(32 * 5)
 
+    CLASS_WEIGHTS = {
+        0: 1,
+        1: 4,
+        # 2: 2,
+        2: 3,
+        3: 6,
+        # 4: 1
+    }
+
     model = beat_concat_seq3_250Hz(feature_len=1250,
                                    # model = beat_depthwise2_128Hz(feature_len=640,
                                    # model = beat_concat_sequeeze_add_more2_128Hz(feature_len=640,

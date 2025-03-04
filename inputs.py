@@ -271,11 +271,9 @@ LABEL_BEAT_TYPES = OrderedDict(
         ("6", OrderedDict([
             ("NOTABEAT", [
            ]),
-            ("N", [
+            ("N", [ # "R", "N"
            ]),
-            ("S", [
-           ]),
-            ("V", [
+            ("V", [ # "S", "V"
            ]),
             ("ARTIFACT", [
            ]),
@@ -471,6 +469,7 @@ def _process_sample(use_gpu_index,
                     ds_type,
                     res_db_dict,
                     writer,
+                    writer_txt,
                     output_directory,
                     save_image,
                     debug=False ):
@@ -571,10 +570,12 @@ def _process_sample(use_gpu_index,
                     # elif symbol_true[i] in ['M']:
                     #     continue
                     # else: #symbol_true[i] in ['N', 'S', 'R', 'V']
-                    elif symbol_true[i] in ['N', 'S', 'R', 'V']:
+                    elif symbol_true[i] in ['N','R']:
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
-                        # continue
+                    elif symbol_true[i] in ['S', 'V']:
+                        __symbol_true.append('V')
+                        __beat_true.append(beat_true[i])
 
                 symbol_true = np.asarray(__symbol_true)
                 beat_true = np.asarray(__beat_true)
@@ -608,6 +609,7 @@ def _process_sample(use_gpu_index,
                 process_data = buf_ecg[data_index]
                 lbl_samp_frame = lbl_samp[label_index]
             except Exception as err:
+                print(f"ERR TFRECORD: {err}")
                 a=10
 
             process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int).flatten()
@@ -680,14 +682,20 @@ def _process_sample(use_gpu_index,
             # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
             #                 writer=writer)
-
+            writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+            if len(process_label_symbol) != num_block and process_data.shape[1]!= feature_len:
+                print("data err")
+                print(f"{process_data.shape}")
+                print(f"{process_label_symbol.shape}")
+                continue
+            # writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
             np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
                             label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
                             writer=writer)
 
-            np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
-                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                            writer=writer)
+            # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+            #                 writer=writer)
 
             # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
             #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
@@ -1014,6 +1022,8 @@ def _process_files_batch(use_gpu_index,
         shard_counter = 0
         files_in_shard = np.arange(shard_ranges[s], shard_ranges[s + 1], dtype=int)
         writer = tf.io.TFRecordWriter(output_file)
+        print(output_file)
+        writer_txt = open(output_file.replace("tfrecord", "txt"), "w")
         for i in files_in_shard:
             file_name = file_names[i]
             try:
@@ -1028,6 +1038,7 @@ def _process_files_batch(use_gpu_index,
                                               ds_type=ds_type,
                                               res_db_dict=res_db_dict,
                                               writer=writer,
+                                              writer_txt= writer_txt,
                                               output_directory=output_directory,
                                               save_image=save_image)
 
@@ -1054,6 +1065,7 @@ def _process_files_batch(use_gpu_index,
             #         lock.release()
 
         writer.close()
+        writer_txt.close()
 
         lock.acquire()
         # try:
@@ -1646,7 +1658,7 @@ def create_tfrecord_from_portal_event(data_model_dir,
     fstatus.close()
 
 
-def create_tfrecord_from_portal_event2(data_model_dir,
+def create_tfrecord_from_portal_event_2(data_model_dir,
                                        data_dir,
                                        media_dir,
                                        save_image=False,
@@ -1884,6 +1896,288 @@ def create_tfrecord_from_portal_event2(data_model_dir,
                 # else:
                 #     _label = label
 
+                eval_beat_type[label] += ds_eval_study_info[studyFid][_label]
+
+        ds_file["eval"]["studyFid"].append(studyFid)
+        ds_file["eval"]["eventFid"] += ds_eval_study_info[studyFid]["eventFid"]
+        ds_file["eval"]["file"] += ds_eval_study_info[studyFid]["file"]
+        list_get.append(studyFid)
+
+    # endregion EVAL DATA
+    print(f'Train: {train_beat_type}')
+    print(f'Eval: {eval_beat_type}')
+
+    for t in ["train", "eval"]:
+        datastore_dict['previous_shards'][t] = 0
+        out_dir = '{}{}/'.format(data_model_dir, t)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        else:
+            shutil.rmtree(out_dir)
+            os.makedirs(out_dir)
+
+        db_process_info = dict()
+        try:
+            all_file = ds_file[t]["file"].copy()
+            shuffle(all_file)
+            num_processes, num_shards = cal_num_process_and_num_shard(all_file, org_num_processes, org_num_shards)
+            db_process_info['files'] = all_file
+            db_process_info['processors'] = num_processes
+            db_process_info['shards'] = num_shards
+            total_shards = np.asarray([db_process_info['shards']]).sum()
+
+            datastore_dict = build_tfrecord(use_gpu_index=0,
+                                            db_process_info=db_process_info,
+                                            total_shards=total_shards,
+                                            datastore_dict=datastore_dict,
+                                            all_file=all_file,
+                                            output_directory=out_dir,
+                                            save_image=save_image)
+
+            print('num_{}_samples = {}'.format(t, datastore_dict[t]['total_sample']))
+        except Exception as e:
+            print(e)
+
+    write_log2(data_model_dir,
+               ds_file,
+               datastore_dict,
+               ds_train_study_info,
+               ds_eval_study_info,
+               all_train_beat_type,
+               all_eval_beat_type)
+
+    fstatus = open(data_model_dir + '/finish.txt', 'w')
+    fstatus.writelines(str(datetime.now()))
+    fstatus.close()
+
+
+def create_tfrecord_from_portal_event_3(data_model_dir,
+                                       data_dir,
+                                       media_dir,
+                                       save_image=False,
+                                       org_num_processes=os.cpu_count(),
+                                       org_num_shards=os.cpu_count(),
+                                       over_write=False):
+    """
+
+    """
+    data_info = basename(dirname(data_model_dir))
+    if not os.path.exists(data_model_dir):
+        os.makedirs(data_model_dir)
+    elif not over_write and os.path.exists(data_model_dir + 'datastore.txt'):
+        print("{} exist!".format(data_model_dir + 'datastore.txt'))
+        return
+    elif over_write:
+        shutil.rmtree(data_model_dir)
+        os.makedirs(data_model_dir)
+
+    from split_train_eval_noise import split_data_2
+    split_data_2(data_dir=data_dir,
+                 output_path=data_model_dir, k=0)
+
+    sampling_rate = int(data_info.split('_')[0])
+    feature_len = int(float(data_info.split('_')[1]) * sampling_rate)
+    num_block = int(data_info.split('_')[2])
+    block_len = int(feature_len // num_block)
+
+    # assert (feature_len % num_block) == 0, print('feature_len not mod num_block')
+    tmp = feature_len
+    step = 0
+    while tmp % 2 == 0 and tmp > num_block:
+        tmp = tmp / 2
+        step += 1
+
+    # assert (int(tmp) == num_block), print('feature_len and num_block do not match')
+
+    ebwr = bool(int(data_info.split('_')[3]))
+    enorm = bool(int(data_info.split('_')[4]))
+    overlap = int(data_info.split('_')[5])
+    class_index = int(data_info.split('_')[6])
+    add_artifact = (int(data_info.split('_')[7]) == 1)
+    percent_train = float(data_info.split('_')[8])
+
+    datastore_dict = dict()
+    datastore_dict["train"] = dict()
+    datastore_dict["eval"] = dict()
+
+    datastore_dict["data_model_dir"] = data_info
+    datastore_dict["data_dir"] = data_dir
+    datastore_dict["eval_dir"] = data_dir
+    datastore_dict["sampling_rate"] = sampling_rate
+    datastore_dict["num_block"] = num_block
+    datastore_dict["block_len"] = block_len
+    datastore_dict["compression_ratio"] = step
+    datastore_dict["feature_len"] = feature_len
+    datastore_dict["input_len"] = feature_len
+    datastore_dict["beat_class"] = LABEL_BEAT_TYPES[str(class_index)]
+    datastore_dict["val_class"] = LABEL_BEAT_TYPES[str(class_index)]
+    datastore_dict["case_label_process"] = class_index
+    datastore_dict["bwr"] = ebwr
+    datastore_dict["norm"] = enorm
+    datastore_dict["overlap"] = overlap
+    datastore_dict["percent_train"] = percent_train
+    datastore_dict["add_artifact"] = add_artifact
+    datastore_dict["BAND_PASS_FILTER"] = BAND_PASS_FILTER
+    datastore_dict["CLIP_RANGE"] = CLIP_RANGE
+    datastore_dict["train"]["total_sample"] = 0
+    datastore_dict["train"]["total_artifact_sample"] = 0
+    datastore_dict["eval"]["total_sample"] = 0
+    datastore_dict["eval"]["total_artifact_sample"] = 0
+    for key in datastore_dict["beat_class"].keys():
+        datastore_dict["eval"][key] = 0
+        datastore_dict["train"][key] = 0
+
+    datastore_dict['previous_shards'] = dict()
+
+    fstatus = open(data_model_dir + '/start.txt', 'w')
+    fstatus.writelines(str(datetime.now()))
+    fstatus.close()
+
+    ds_file = dict()
+    ds_file["train"] = {"file": [], "studyFid": [], "eventFid": []}
+    ds_file["eval"] = {"file": [], "studyFid": [], "eventFid": []}
+
+    # region TRAIN DATA
+    ds_train_study_info = dict()
+    all_train_beat_type = dict()
+    train_beat_type = dict()
+
+    #open log_data.json
+    with open(data_model_dir + 'log_data_noise.json', 'r') as fp:
+        list_data = json.load(fp)
+
+    all_file_train = []
+    res = {}
+    keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
+
+    for label in keys_class : #datastore_dict["beat_class"].keys():
+        if not 'NOTABEAT' in label:
+            _label = label
+            if label == 'ARTIFACT':
+                label = 'Q'
+
+            for studyID in list_data['Train'][f'{label}_study_path']:
+                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
+                if len(list_files) == 0:
+                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
+                if len(list_files) > 0:
+                    all_file_train.extend(list_files)
+
+            all_train_beat_type[_label] = 0
+            train_beat_type[_label] = 0
+            res[_label] = 0
+
+    shuffle(all_file_train)
+    for f in all_file_train:
+        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, res.copy())
+        if studyFid not in ds_train_study_info.keys():
+            ds_train_study_info[studyFid] = dict()
+            ds_train_study_info[studyFid]["hasComplexBeat"] = []
+            ds_train_study_info[studyFid]["eventFid"] = []
+            ds_train_study_info[studyFid]["file"] = []
+            _type = f.split('export_')[-1].split('/')[0]
+
+            if _type in ['RVE', 'RSE']:
+                _type = 'R'
+            elif _type in ['ARTIFACT', 'NOISE']:
+                _type = 'Q'
+
+            for label in ['N', 'R', 'V', 'S', 'Q'] : #datastore_dict["beat_class"].keys():
+                try:
+                    ds_train_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
+                except:
+                    ds_train_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
+
+        ds_train_study_info[studyFid]["eventFid"].append(eventFid)
+        ds_train_study_info[studyFid]["file"].append(f)
+        ds_train_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+            if label in num_beat_type:
+                ds_train_study_info[studyFid][label] += num_beat_type[label]
+                all_train_beat_type[label] += num_beat_type[label]
+            else:
+                ds_train_study_info[studyFid][label] = 0
+
+    list_study_id = list(ds_train_study_info.keys())
+    list_get = []
+    shuffle(list_study_id)
+    for studyFid in list_study_id:
+        if studyFid in list_get:
+            continue
+
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+            if not 'NOTABEAT' in label:
+                train_beat_type[label] += ds_train_study_info[studyFid][label]
+
+        ds_file["train"]["studyFid"].append(studyFid)
+        ds_file["train"]["eventFid"] += ds_train_study_info[studyFid]["eventFid"]
+        ds_file["train"]["file"] += ds_train_study_info[studyFid]["file"]
+        list_get.append(studyFid)
+    # endregion TRAIN DATA
+
+    # region EVAL DATA
+    ds_eval_study_info = dict()
+    eval_beat_type = dict()
+    all_eval_beat_type = dict()
+    all_file_eval = []
+    keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
+    for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+        if not 'NOTABEAT' in label:
+            _label = label
+            if label == 'ARTIFACT':
+                label = 'Q'
+
+            for studyID in list_data['Eval'][f'{label}_study_path']:
+                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
+                if len(list_files) == 0:
+                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
+                if len(list_files) > 0:
+                    all_file_eval.extend(list_files)
+
+        all_eval_beat_type[_label] = 0
+        eval_beat_type[_label] = 0
+        res[_label] = 0
+
+    shuffle(all_file_eval)
+    for f in all_file_eval:
+        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, res.copy())
+        if studyFid not in ds_eval_study_info.keys():
+            ds_eval_study_info[studyFid] = dict()
+            ds_eval_study_info[studyFid]["hasComplexBeat"] = []
+            ds_eval_study_info[studyFid]["eventFid"] = []
+            ds_eval_study_info[studyFid]["file"] = []
+            _type = f.split('export_')[-1].split('/')[0]
+
+            if _type in ['RVE', 'RSE']:
+                _type = 'R'
+            elif _type in ['ARTIFACT', 'NOISE']:
+                _type = 'Q'
+
+            for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+                try:
+                    ds_eval_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
+                except:
+                    ds_eval_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
+
+        ds_eval_study_info[studyFid]["eventFid"].append(eventFid)
+        ds_eval_study_info[studyFid]["file"].append(f)
+        ds_eval_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+            if label in num_beat_type:
+                ds_eval_study_info[studyFid][label] += num_beat_type[label]
+                all_eval_beat_type[label] += num_beat_type[label]
+            else:
+                ds_eval_study_info[studyFid][label] = 0
+
+    list_study_id = list(ds_eval_study_info.keys())
+    list_get = []
+    shuffle(list_study_id)
+    for studyFid in list_study_id:
+        if studyFid in list_get:
+            continue
+
+        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
+            if not 'NOTABEAT' in label:
                 eval_beat_type[label] += ds_eval_study_info[studyFid][_label]
 
         ds_file["eval"]["studyFid"].append(studyFid)

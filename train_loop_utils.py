@@ -158,11 +158,6 @@ def train_beat_classification(use_gpu_index,
     os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(use_gpu_index)
     import tensorflow as tf
     import logging
-    # from tensorflow.python.autograph.core import ag_ctx
-    # from tensorflow.python.autograph.impl import api as autograph
-    # from tensorflow.python.keras.utils import losses_utils
-    # from tensorflow.python.keras.utils import metrics_utils
-    # from tensorflow.python.ops import math_ops
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     tf.get_logger().setLevel(logging.ERROR)
@@ -186,8 +181,6 @@ def train_beat_classification(use_gpu_index,
         def update_state(self, y_true, y_pred, sample_weight=None):
             y_true = tf.argmax(y_true, axis=-1)
             y_pred = tf.argmax(y_pred, axis=-1)
-            # y_true = keras.backend.flatten(y_true)
-            # y_pred = keras.backend.flatten(y_pred)
             y_true = tf.reshape(y_true, [-1])
             y_pred = tf.reshape(y_pred, [-1])
 
@@ -797,7 +790,6 @@ def train_beat_classification(use_gpu_index,
                                          range((begin_at_epoch + epoch_num) // valid_freq)],
                         class_weight=CLASS_WEIGHTS,
                         initial_epoch=begin_at_epoch)
-
 
     bk_metric["stop_train"] = True
     bk_metric_file = open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'w')

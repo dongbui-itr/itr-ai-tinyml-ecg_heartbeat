@@ -19,6 +19,7 @@ def train():
     MAX_EPOCH = 30
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
     MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("250301"))
     # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("241117"))
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240503')
     # MEDIA_PATH = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('240510')
@@ -33,9 +34,11 @@ def train():
 
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection/'
-    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_rm/'
-    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
+    DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_rm/'
+    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
     # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/'
+
+    # DATA_SOURCE = '/mnt/Dataset//ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510_2/'
 
     # sl.split_data(MEDIA_PATH)
 
@@ -54,7 +57,7 @@ def train():
     DATA = [
         # '128_05_40_0_0_0_6_0_0.99', #240529_NSV
         # '128_05_40_0_0_0_7_0_0.99', #240712_NSV
-        '250_05_78_0_0_0_5_0_0.99'
+        '250_05_78_0_0_0_6_0_0.99'
     ]
     BATCH_SIZE_TRAINING = [
         512,
@@ -69,7 +72,8 @@ def train():
         # "beat_seq_mobilenet_v2_1d_0_0.0.0_0_0.5",
         # "beat_seq_mobilenet_v2keras_1d_0_0.0.0_0_0.5",
         # "beat_concat_seq3_250Hz_2_8.16.32_0_0.5",
-        "beat_concat_seq3_250Hz_2_8.16.8_0_0.5",
+        # "beat_concat_seq3_250Hz_2_8.16.8_0_0.5",
+        "beat_concat_seq3_250Hz_2_8.24.8_0_0.5",
     ]
 
     # MobileNetv2_1D(input_shape, num_of_class, k, alpha=1.0, rate=0.5):
@@ -85,7 +89,7 @@ def train():
         count = 0
         pt_bk = copy.copy(pt)
         flag_reset_data = False
-        while try_on_with_dataset < num_try_on_with_dataset:
+        while try_on_with_dataset < num_try_on_with_dataset and count < 30:
         # while count < 1:
             count += 1
             # sl.split_data_2(DATA_SOURCE, MEDIA_PATH, count)
@@ -167,7 +171,8 @@ def train():
                 os.remove(finish_file)
                 os.remove(start_file)
 
-            data_model.create_tfrecord_from_portal_event2(data_model_dir=data_model_dir,
+            # data_model.create_tfrecord_from_portal_event_2(data_model_dir=data_model_dir,
+            data_model.create_tfrecord_from_portal_event_3(data_model_dir=data_model_dir,
                                                           data_dir=DATA_SOURCE,
                                                           media_dir=MEDIA_PATH,
                                                           save_image=False,
@@ -225,74 +230,6 @@ def train():
                              overlap=5,
                              num_of_process=3)
 
-                    # endregion
-                    # # region check
-                    # num_class = len(list((data_model.LABEL_BEAT_TYPES[int(pt.split('_')[6])]).keys()))
-                    # squared_error_gross = 0
-                    # squared_error_average = 0
-                    # for f in DB_TESTING:
-                    #     f = output_ec57_directory + "/{}".format(f[0])
-                    #     path_out = '{}/{}_QRS_report_line.out'.format(f, os.path.basename(f))
-                    #     file_out = open(path_out)
-                    #     content = file_out.readlines()
-                    #     gross_value = re.findall(r'[-+]?\d*\.\d+|\d+|[-]', content[-5])
-                    #     average_value = re.findall(r'[-+]?\d*\.\d+|\d+|[-]', content[-4])
-                    #
-                    #     _keys = ["N(se)", "N(p+)", "V(se)", "V(p+)", "S(se)", "S(p+)"]
-                    #
-                    #     for n, k in enumerate(_keys):
-                    #         if n < len(gross_value) and \
-                    #                 "-" not in gross_value[n] and \
-                    #                 (num_class < 0 or n < num_class * 2):
-                    #             squared_error_gross += np.square(1 - float(gross_value[n]) / 100)
-                    #             squared_error_average += np.square(1 - float(average_value[n]) / 100)
-                    #         elif n < len(gross_value) and \
-                    #                 "-" in gross_value[n] and \
-                    #                 (num_class < 0 or n < num_class * 2):
-                    #             squared_error_gross += np.square(1 - float(0) / 100)
-                    #             squared_error_average += np.square(1 - float(0) / 100)
-                    #
-                    # fstatus = open(output_ec57_directory + '/squared_error.txt', 'w')
-                    # fstatus.writelines('squared_error_gross: {:.6f}\n'.format(squared_error_gross))
-                    # fstatus.writelines('squared_error_average: {:.6f}\n'.format(squared_error_average))
-                    # fstatus.close()
-                    # # endregion
-                    #
-                    # print('squared_error_gross: ', squared_error_gross)
-                    # if squared_error_gross <= THR or i == 0:
-                    #     THR = squared_error_gross
-                    #     des = MEDIA_PATH + '-{:.6f}'.format(squared_error_gross)
-                    #     copy_tree(output_dir, des)
-                    #     shutil.copyfile(datastore_file, des + "/datastore.txt")
-                    #     shutil.copyfile(ds_eval_file, des + "/ds_eval.txt")
-                    #     shutil.copyfile(ds_train_file, des + "/ds_train.txt")
-                    #     shutil.copyfile(ds_study_train, des + "/ds_study_train.txt")
-                    #     shutil.copyfile(ds_study_eval, des + "/ds_study_eval.txt")
-                    #
-                    #     if os.path.exists(ds_study_info):
-                    #         shutil.copyfile(ds_study_info, des + "/ds_study_info.txt")
-                    #
-                    #     if os.path.exists(ds_train_study_info):
-                    #         shutil.copyfile(ds_train_study_info, des + "/ds_train_study_info.txt")
-                    #
-                    #     if os.path.exists(ds_eval_study_info):
-                    #         shutil.copyfile(ds_eval_study_info, des + "/ds_eval_study_info.txt")
-                    #
-                    #     if os.path.exists(all_beat_type):
-                    #         shutil.copyfile(all_beat_type, des + "/all_beat_type.txt")
-                    #
-                    #     if os.path.exists(all_train_beat_type):
-                    #         shutil.copyfile(all_train_beat_type, des + "/all_train_beat_type.txt")
-                    #
-                    #     if os.path.exists(all_eval_beat_type):
-                    #         shutil.copyfile(all_eval_beat_type, des + "/all_eval_beat_type.txt")
-                    #
-                    #     if os.path.exists(train_beat_type):
-                    #         shutil.copyfile(train_beat_type, des + "/train_beat_type.txt")
-                    #
-                    #     squared_error_gross_ec57 = squared_error_gross
-
-                        # try_on_with_dataset += 1
                 except Exception as err:
                     print('Error at run_ec57:', err)
 

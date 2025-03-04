@@ -3,11 +3,11 @@ import os
 
 from glob import glob
 
-DATE = '241205'
+DATE = '240301'
 
 # def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_NSV/'.format('240722'), sampling_rate='128'):
-def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(DATE), sampling_rate='250'):
-# def main(data_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/{}/'.format('241114'), sampling_rate='128'):
+# def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(DATE), sampling_rate='250'):
+def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}_bk/'.format('250301'), sampling_rate='250'):
     dbs = ['mitdb', 'nstdb', 'escdb', 'ahadb', 'afdb']
     print(dbs)
     # for db in dbs:
