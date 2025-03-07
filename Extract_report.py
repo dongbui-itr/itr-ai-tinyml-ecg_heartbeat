@@ -81,7 +81,6 @@ def main(data_path='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}
     print(list_key)
 
     excel_file.close()
-    a=10
 
 
 if __name__ == '__main__':

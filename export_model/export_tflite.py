@@ -1,11 +1,38 @@
-import os.path
 from os.path import join, basename
+from glob import glob
+from tensorflow import lite
+from functools import partial
 
+import os.path
 import tensorflow as tf
 import datetime
 import numpy as np
+import model_2D as model_new
 
-from tensorflow import lite
+
+
+def _preprocess_proto(example_proto, feature_len, label_len, class_num):
+    """Read sample from protocol buffer."""
+    encoding_scheme = {
+        'sample': tf.io.FixedLenFeature(shape=[feature_len, ], dtype=tf.float32),
+        'label': tf.io.FixedLenFeature(shape=[label_len], dtype=tf.int64),
+    }
+    proto = tf.io.parse_single_example(example_proto, encoding_scheme)
+    sample = proto["sample"]
+    label = proto["label"]
+    label = tf.one_hot(label, class_num)
+    # return sample, label
+    return tf.expand_dims(tf.expand_dims(sample, axis=0), axis=-1), tf.expand_dims(label, axis=0)
+
+def _get_tfrecord_filenames(dir_path, is_training):
+    if not os.path.exists(dir_path):
+        raise FileNotFoundError("{}; No such file or directory.".format(dir_path))
+
+    filenames = sorted(glob(os.path.join(dir_path, "*.tfrecord")))
+    if not filenames:
+        raise FileNotFoundError("No TFRecords found in {}".format(dir_path))
+
+    return filenames
 
 
 class Export_tflite():
@@ -21,7 +48,7 @@ class Export_tflite():
     def convert_to_tf_lite(self, quantization=True, batch_size=1, c_export=False):
         # self.model.load_weights(tf.train.latest_checkpoint(join(self.work_dir, 'checkpoint'))).expect_partial()
         # model_convert = self.model
-        self.model = tf.keras.models.load_model(self.model)
+        # self.model = tf.keras.models.load_model(self.model)
 
         input_shape = self.model.inputs[0].shape.as_list()
         input_shape[0] = batch_size
@@ -226,37 +253,51 @@ class Export_tflite():
         return source_text, header_text
 
 
-
-
-
-
 if __name__ == '__main__':
-    from DL_detection.train_abnormaly_2D_5s import _get_tfrecord_filenames
-    from DL_detection.create_tfrecord import _preprocess_proto_abnormal_2D_1250
-    from functools import partial
 
-    eval_directory = '/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/abnormal_noise_5s_240906_1.0.1.1/eval/'
-    model_name = 'models_squeeze_unet_2d_2'
-    model = '/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/abnormal_noise_5s_240906_1.0.1.1/240906_172511/models_squeeze_unet_2d_2/best_checkpoint/squeeze_unet_2d_2-002-0.05242.h5'
-    work_dir = os.path.dirname(model)
+    # eval_directory = '/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/abnormal_noise_5s_240906_1.0.1.1/eval/'
+    # model_name = 'models_squeeze_unet_2d_2'
+    # model = '/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/abnormal_noise_5s_240906_1.0.1.1/240906_172511/models_squeeze_unet_2d_2/best_checkpoint/squeeze_unet_2d_2-002-0.05242.h5'
+    # work_dir = os.path.dirname(model)
+
+    eval_directory = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/241210/250_05_78_0_0_0_5_0_0.99_c1/eval'
+    model_name = 'beat_concat_seq3_250Hz'
+    ckt = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/241205/250_05_78_0_0_0_5_0_0.99_c2/output/model/beat_concat_seq3_250Hz_2_8.16.8_0_0.5_2/best_squared_error_metric/beat_concat_seq3_250Hz_2_8.16.8_0_0.5-epoch-28.weights.h5'
+    work_dir = os.path.dirname(ckt)
+
+    feature_len = 1250
+    class_num = 3
+    from_logits = False
+    num_filters = [8, 16, 8]
+    num_loop = 2
 
     eval_filenames = _get_tfrecord_filenames(eval_directory, True)
     eval_dataset = tf.data.TFRecordDataset(eval_filenames)
 
-    eval_dataset = eval_dataset.map(partial(_preprocess_proto_abnormal_2D_1250,
-                                            feature_len=640,
-                                            label_len=640,
-                                            class_num=2),
+    eval_dataset = eval_dataset.map(partial(_preprocess_proto,
+                                            feature_len=feature_len,
+                                            label_len=78,
+                                            class_num=class_num),
                                     num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
+    beat_model = getattr(model_new, model_name)(feature_len,
+                                          class_num,
+                                          from_logits,
+                                          num_filters,
+                                          num_loop,
+                                          0.5,
+                                          False)
+    check_point = glob(ckt)
+    beat_model.load_weights(check_point)
+
     export_tflite = Export_tflite(model_name=model_name,
-                                  model=model,
+                                  model=beat_model,
                                   eval_data=eval_dataset,
                                   work_dir=work_dir,
                                   batch_size=1,
                                   quantization=False)
 
-    # export_tflite.convert_to_tf_lite(c_export=True)
+    export_tflite.convert_to_tf_lite(c_export=True)
 
-    export_tflite.eval_tflite(eval_data=eval_dataset)
+    # export_tflite.eval_tflite(eval_data=eval_dataset)
 

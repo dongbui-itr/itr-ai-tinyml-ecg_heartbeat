@@ -2,22 +2,24 @@ import csv
 import json
 import numpy as np
 import tensorflow as tf
-import model as model_new
+# import model as model_new
+import model_2D as model_new
 import model_old as model_old
 import os
 import getpass
 import datetime
+import glob
 
 from export_model_tf2 import export_model
 
 
 def main():
-    beat_model_path = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/240529_NSV/128_05_40_0_0_0_6_0_0.99_c2/"
+    beat_model_path = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/241204/250_05_78_0_0_0_5_0_0.99_c2/"
                        # "beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5_2/best_squared_error_metric/beat_concat_seq_add_more2_128Hz_3_8.16.32_0_0.5-epoch-8.weights.h5")
 
     model_name = os.listdir(beat_model_path + "/output/model")[0]
-    # beat_checkpoint = beat_model_path + "/model/{}/best_squared_error_metric".format(model_name)
-    beat_checkpoint = beat_model_path + "/model/{}/last".format(model_name)
+    beat_checkpoint = beat_model_path + "/output/model/{}/best_squared_error_metric".format(model_name)
+    # beat_checkpoint = beat_model_path + "/model/{}/last".format(model_name)
     beat_datastore_file = beat_model_path + '/datastore.txt'
 
     _case = model_name.replace('/', '').replace('=', '').replace('-', '').replace('_', '').replace('.', '')
@@ -45,7 +47,7 @@ def main():
 
     func = func[:-1]
 
-    day_export = beat_checkpoint.split('/')[-6]
+    day_export = beat_checkpoint.split('/')[5]
     day_export = day_export.split('_')[0]
     day_export = datetime.datetime.strptime(day_export, '%y%m%d')
     # day_export = datetime.datetime.strptime(day_export, '%y%m%d')
@@ -72,11 +74,14 @@ def main():
                                           0.5,
                                           False)
 
-    last_model = tf.train.latest_checkpoint(beat_checkpoint)
+    beat_model.summary()
 
-    beat_model.load_weights(tf.train.latest_checkpoint(beat_checkpoint)).expect_partial()
+    # last_model = tf.train.latest_checkpoint(beat_checkpoint)
+    check_point = glob.glob(beat_checkpoint + '/*.h5')[0]
+    beat_model.load_weights(check_point)
 
     export_model(beat_model, output_path=beat_checkpoint + '_export', signatures='beats')
+
 
     # # datastore_file = DATAPATH + '/' + '/datastore.txt'
     # with open(datastore_file, 'r') as json_file:

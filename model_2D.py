@@ -448,7 +448,7 @@ def beat_concat_seq3_250Hz(feature_len,
 
         x = conv2d_net(x=x,
                        num_filters=num_of_class,
-                       kernel_size=(1,2),
+                       kernel_size=(1, 2),
                        strides=1,
                        pad='VALID',
                        act=False,
@@ -730,7 +730,11 @@ def test_model():
                                    rate=0.5,
                                    name='beat_concat_seq_add_more2_other')
 
-    model.summary()
+    def myprint(s):
+        with open('model_2D.txt', 'a') as f:
+            print(s, file=f)
+
+    model.summary(print_fn=myprint)
 
     # import numpy as np
     # label = np.random.randint(2, size=(100, 1, 78, 4))
