@@ -115,7 +115,6 @@ def run_ec57(use_gpu_index,
                     log_eval.writelines(log_lines)
 
             log_eval.writelines(log_lines)
-
             process_end_time = time.time()
             str_log = 'multiprocess {} take {} seconds\n'.format(basename(os.path.dirname(file_names[0])),
                                                                  process_end_time - process_start_time)

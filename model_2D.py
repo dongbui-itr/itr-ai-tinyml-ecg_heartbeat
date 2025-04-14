@@ -734,14 +734,25 @@ def test_model():
         with open('model_2D.txt', 'a') as f:
             print(s, file=f)
 
-    model.summary(print_fn=myprint)
+    # model.summary(print_fn=myprint)
+    # model.summary()
 
-    # import numpy as np
-    # label = np.random.randint(2, size=(100, 1, 78, 4))
-    # sample = np.random.randint(10, size=(100, 1, 1250, 1))
-    #
-    # model.compile(optimizer='adam', loss='binary_crossentropy')
-    # model.fit(x=sample, y=label, epochs=1)
+    import numpy as np
+    # label = np.random.randint(2, size=(1000000, 1, 78, 4))
+    # label = np.eye(4)[np.random.choice(4, 78)]
+    # _label = np.expand_dims(label, axis=0)
+    label = []
+    no_sample = 100000
+    for i in range(no_sample):
+        label.extend([np.eye(4)[np.random.choice(4, 78)]])
+
+    label = np.asarray(label)
+    label = np.expand_dims(label, axis=1)
+
+    sample = np.random.randint(10, size=(no_sample, 1, 1250, 1))
+
+    model.compile(optimizer='adam', loss='binary_crossentropy')
+    model.fit(x=sample, y=label, batch_size=32, epochs=1)
 
 
 def freeze_model(train_model, num_class=2, last_layer_name='last_conv_conv1d'):

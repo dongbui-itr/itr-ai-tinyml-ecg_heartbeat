@@ -59,10 +59,10 @@ TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 CLASS_TYPES = ['N', 'V', 'S', 'R']
 
 CLASS_WEIGHTS = {
-        0: 0.5,
+        0: 1,
         1: 4,
-        2: 5,
-        3: 6,
+        2: 4,
+        3: 2,
     }
 
 CLASS_WEIGHTS_RETRAIN = {
@@ -73,6 +73,7 @@ CLASS_WEIGHTS_RETRAIN = {
 
 OVERLAB_IN_FILE = 3
 OVERLAB = 1
+OFFSET_FRAME_BEAT = [0, 5]
 
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
@@ -87,7 +88,7 @@ DB_TESTING = [
 SAMP_FROM = 0
 SAMP_TO = 0
 
-# FILE_NAME = '118e_6'
+# FILE_NAME = '100'
 # DEBUG = True
 
 FILE_NAME = '*'

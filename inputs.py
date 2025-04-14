@@ -31,6 +31,7 @@ from all_config import EXT_BEAT, EXT_BEAT_EVAL, TYPES_DATA, OVERLAB_IN_FILE, CLA
 NUM_NORMALIZATION = 0.6
 MIN_RR_INTERVAL = 0.25
 HES_SAMPLING_RATE = 200
+HES_SAMPLING_RATE = 200
 # CONFIG
 NEW_MODE = 0
 OLD_MODE = 1
@@ -340,8 +341,7 @@ def np_to_tfrecords(sample_buffer, label_buffer, writer):
         elif dtype_ == np.int64:
             return lambda array: tf.train.Feature(int64_list=tf.train.Int64List(value=array))
         else:
-            raise ValueError("The input should be numpy ndarray. \
-                               Instaed got {}".format(ndarray.dtype))
+            raise ValueError("The input should be numpy ndarray. Instaed got {}".format(ndarray.dtype))
 
     assert isinstance(sample_buffer, np.ndarray)
     assert len(sample_buffer.shape) == 2  # If X has a higher rank,
@@ -367,10 +367,10 @@ def np_to_tfrecords(sample_buffer, label_buffer, writer):
         if label_buffer is not None:
             d_feature['label'] = dtype_feature_y(y)
 
-        features = tf.train.Features(feature=d_feature)
-        example = tf.train.Example(features=features)
-        serialized = example.SerializeToString()
-        writer.write(serialized)
+            features = tf.train.Features(feature=d_feature)
+            example = tf.train.Example(features=features)
+            serialized = example.SerializeToString()
+            writer.write(serialized)
 
 
 def cal_num_process_and_num_shard(files, org_num_processes, org_num_shards):
@@ -559,9 +559,9 @@ def _process_sample(use_gpu_index,
                 __symbol_true = []
                 __beat_true = []
                 for i in range(len(symbol_true)):
-                    if symbol_true[i] in ['Q']:
-                        __symbol_true.append('ARTIFACT')
-                        __beat_true.append(beat_true[i])
+                    # if symbol_true[i] in ['Q']:
+                    #     __symbol_true.append('ARTIFACT')
+                    #     __beat_true.append(beat_true[i])
                     # # elif symbol_true[i] in CLASS_TYPES:
                     # #     __symbol_true.append('N')
                     # #     # __symbol_true.append(symbol_true[i])
@@ -570,11 +570,14 @@ def _process_sample(use_gpu_index,
                     # elif symbol_true[i] in ['M']:
                     #     continue
                     # else: #symbol_true[i] in ['N', 'S', 'R', 'V']
-                    elif symbol_true[i] in ['N','R']:
+                    if symbol_true[i] in ['N','R']:
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
                     elif symbol_true[i] in ['S', 'V']:
                         __symbol_true.append('V')
+                        __beat_true.append(beat_true[i])
+                    elif symbol_true[i] in ['Q', 'M']:
+                        __symbol_true.append('ARTIFACT')
                         __beat_true.append(beat_true[i])
 
                 symbol_true = np.asarray(__symbol_true)
@@ -608,104 +611,106 @@ def _process_sample(use_gpu_index,
                 lbl_samp[beat_true] = symbol_true
                 process_data = buf_ecg[data_index]
                 lbl_samp_frame = lbl_samp[label_index]
+
+                process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int)
+                _process_label_symbol = process_label_symbol.flatten()
+                res_db_dict[ds_type]["total_sample"] += len(process_data)
+                for key in beat_class.keys():
+                    lbl_int = int(ind[key])
+                    lbl_pos = np.where(_process_label_symbol == lbl_int)[0]
+                    if len(lbl_pos) > 0:
+                        res_db_dict[ds_type][key] += len(lbl_pos)
+
+                # if save_image:
+                #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
+                #     if not os.path.exists(sub_save_image):
+                #         os.makedirs(sub_save_image)
+                #         file_count = 0
+                #     else:
+                #         _, _, files = next(os.walk(sub_save_image))
+                #         file_count = len(files)
+                #
+                #     if file_count < MAX_NUM_IMG_SAVE:
+                #         note = ""
+                #         for n in ind_invert.keys():
+                #             note += "{}: {}\n".format(n, ind_invert[n])
+                #
+                #         buf_frame = buf_ecg.copy()
+                #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
+                #         buf_mark = np.zeros(data_len)
+                #         buf_mark[_from_event: _to_event] = max(buf_lbl)
+                #         plot_len = data_len // 3
+                #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
+                #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
+                #             main_rhythm_file,
+                #             sub_rhythm_file,
+                #             basename(file_name)), fontsize=11)
+                #         for i, ax in enumerate(axx):
+                #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
+                #             ax.text(0, 0, technician_comment)
+                #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
+                #                     wrap=True)
+                #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
+                #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
+                #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
+                #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
+                #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
+                #             ax.set_xticks(major_ticks)
+                #             ax.set_xticks(minor_ticks, minor=True)
+                #             ax.set_yticks(
+                #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
+                #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
+                #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
+                #             ax.legend()
+                #
+                #         DEBUG_IMG = False
+                #         if not DEBUG_IMG:
+                #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
+                #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
+                #             plt.close(fig)
+                #         else:
+                #             print(basename(file_name))
+                #             plt.show()
+                # print(file_name.split('export_')[-1].split('/')[0])
+                # print(process_label_symbol)
+
+                # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                #                 writer=writer)
+
+                # _process_data = np.concatenate((process_data, process_data/3), axis=0)
+                # _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
+                # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
+                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                #                 writer=writer)
+
+                if process_label_symbol.shape[1] != num_block and process_data.shape[1]!= feature_len:
+                    writer_txt.writelines(f"Error: data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+                    continue
+                else:
+                    writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+                # writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+
+                np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                                label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                                writer=writer)
+
+                # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                #                 writer=writer)
+
+                # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
+                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                #                 writer=writer)
+
+                # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
+                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                #                 writer=writer)
+
+                # print("test")
             except Exception as err:
                 print(f"ERR TFRECORD: {err}")
-                a=10
 
-            process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int).flatten()
-            res_db_dict[ds_type]["total_sample"] += len(process_data)
-            for key in beat_class.keys():
-                lbl_int = int(ind[key])
-                lbl_pos = np.where(process_label_symbol == lbl_int)[0]
-                if len(lbl_pos) > 0:
-                    res_db_dict[ds_type][key] += len(lbl_pos)
-
-            # if save_image:
-            #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
-            #     if not os.path.exists(sub_save_image):
-            #         os.makedirs(sub_save_image)
-            #         file_count = 0
-            #     else:
-            #         _, _, files = next(os.walk(sub_save_image))
-            #         file_count = len(files)
-            #
-            #     if file_count < MAX_NUM_IMG_SAVE:
-            #         note = ""
-            #         for n in ind_invert.keys():
-            #             note += "{}: {}\n".format(n, ind_invert[n])
-            #
-            #         buf_frame = buf_ecg.copy()
-            #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
-            #         buf_mark = np.zeros(data_len)
-            #         buf_mark[_from_event: _to_event] = max(buf_lbl)
-            #         plot_len = data_len // 3
-            #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
-            #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
-            #             main_rhythm_file,
-            #             sub_rhythm_file,
-            #             basename(file_name)), fontsize=11)
-            #         for i, ax in enumerate(axx):
-            #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
-            #             ax.text(0, 0, technician_comment)
-            #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
-            #                     wrap=True)
-            #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
-            #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
-            #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
-            #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
-            #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
-            #             ax.set_xticks(major_ticks)
-            #             ax.set_xticks(minor_ticks, minor=True)
-            #             ax.set_yticks(
-            #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
-            #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
-            #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
-            #             ax.legend()
-            #
-            #         DEBUG_IMG = False
-            #         if not DEBUG_IMG:
-            #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
-            #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
-            #             plt.close(fig)
-            #         else:
-            #             print(basename(file_name))
-            #             plt.show()
-            # print(file_name.split('export_')[-1].split('/')[0])
-            # print(process_label_symbol)
-
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-
-            # _process_data = np.concatenate((process_data, process_data/3), axis=0)
-            # _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
-            # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-            writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
-            if len(process_label_symbol) != num_block and process_data.shape[1]!= feature_len:
-                print("data err")
-                print(f"{process_data.shape}")
-                print(f"{process_label_symbol.shape}")
-                continue
-            # writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
-            np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-                            label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                            writer=writer)
-
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-
-            # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
-            #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-            #                 writer=writer)
-
-            # print("test")
             start_samp += int(OVERLAB_IN_FILE * sampling_rate)
             # break
 

@@ -9,7 +9,6 @@ import math
 import os
 import re
 import sys
-import io
 from functools import partial
 from glob import glob
 from random import shuffle
@@ -17,11 +16,10 @@ import numpy as np
 
 # import model as beat_model
 import model_2D as beat_model
+import inputs as dat_model
 from utils.logging import TextLogging
 from all_config import CLASS_WEIGHTS, CLASS_WEIGHTS_RETRAIN
-from sklearn.metrics import confusion_matrix, classification_report, f1_score
-import seaborn as sns
-import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 import keras
 
 
@@ -119,11 +117,11 @@ def train_beat_classification(use_gpu_index,
     else:
         val_class = datastore_dict["beat_class"]
 
-    tensorboard_log_dir = model_dir + '/tensorboard_log_dir'
     last_checkpoint_dir = model_dir + '/last'
+    best_squared_error_checkpoint_dir = model_dir + '/best_squared_error_metric'
     best_loss_checkpoint_dir = model_dir + '/best_loss'
-    best_f1_checkpoint_dir = model_dir + '/best_avg'
-    for i in [last_checkpoint_dir, tensorboard_log_dir,
+    best_f1_checkpoint_dir = model_dir + '/best_f1'
+    for i in [last_checkpoint_dir, best_squared_error_checkpoint_dir,
               best_loss_checkpoint_dir, best_f1_checkpoint_dir]:
         if not os.path.exists(i):
             os.makedirs(i)
@@ -173,6 +171,429 @@ def train_beat_classification(use_gpu_index,
         print(os.environ["CUDA_VISIBLE_DEVICES"])
         print('Use CPU')
 
+    class ConfusionMatrix(keras.metrics.Metric):
+        def __init__(self, classes, name='confusion_matrix'):
+            super(ConfusionMatrix, self).__init__(name=name)
+            self.save_matrix = self.add_weight(shape=(classes, classes), name='cm',
+                                               initializer='zeros', dtype=tf.int32)
+            self.num_of_class = classes
+
+        def update_state(self, y_true, y_pred, sample_weight=None):
+            y_true = keras.ops.argmax(y_true, axis=-1)
+            y_pred = keras.ops.argmax(y_pred, axis=-1)
+            y_true = keras.ops.reshape(y_true, [-1])
+            y_pred = keras.ops.reshape(y_pred, [-1])
+
+            # confusion_matrix = sk_confusion_matrix(y_true=y_true, y_pred=y_pred)
+            confusion_matrix = tf.math.confusion_matrix(labels=y_true, predictions=y_pred)
+            if sample_weight is not None:
+                sample_weight = keras.ops.cast(sample_weight, self.dtype)
+                sample_weight = tf.broadcast_to(sample_weight, confusion_matrix.shape)
+                confusion_matrix = tf.multiply(confusion_matrix, sample_weight)
+            self.save_matrix.assign_add(confusion_matrix)
+
+        def result(self):
+            return self.save_matrix
+
+        def reset_states(self):
+            keras.backend.set_value(self.save_matrix, np.zeros((self.num_of_class, self.num_of_class)))
+
+    class CustomCallback(keras.callbacks.Callback):
+        def __init__(self,
+                     model_name,
+                     log_train,
+                     stopped_epoch,
+                     last_checkpoint_dir,
+                     best_loss_checkpoint_dir,
+                     best_squared_error_checkpoint_dir,
+                     best_f1_checkpoint_dir,
+                     bk_metric,
+                     lbl_train,
+                     lbl_val,
+                     log_dir,
+                     field_name,
+                     best_loss=-1,
+                     best_squared_error_metrics=-1,
+                     best_f1_score_metrics=-1,
+                     valid_freq=6,
+                     patience=3,
+                     length_train=None,
+                     length_valid=None,
+                     tensorboard_dir=None
+                     ):
+            """
+
+            :param model_name:
+            :param log_train:
+            :param stopped_epoch:
+            :param last_checkpoint_dir:
+            :param best_loss_checkpoint_dir:
+            :param best_squared_error_checkpoint_dir:
+            :param best_f1_checkpoint_dir:
+            :param bk_metric:
+            :param lbl_train:
+            :param log_dir:
+            :param field_name:
+            :param best_loss:
+            :param best_squared_error_metrics:
+            :param best_f1_score_metrics:
+            :param valid_freq:
+            :param length_train:
+            :param length_valid:
+            :param tensorboard_dir:
+            """
+            super(CustomCallback, self).__init__()
+            self.bk_metric = bk_metric
+            self.log_train = log_train
+            self.last_checkpoint_dir = last_checkpoint_dir
+            self.best_loss_checkpoint_dir = best_loss_checkpoint_dir
+            self.best_squared_error_checkpoint_dir = best_squared_error_checkpoint_dir
+            self.best_f1_checkpoint_dir = best_f1_checkpoint_dir
+            self.model_name = model_name
+            self.stopped_epoch = stopped_epoch
+            self.lbl_train = lbl_train
+            self.lbl_val = lbl_val
+            self.best_loss = best_loss
+            self.best_squared_error_metrics = best_squared_error_metrics
+            self.best_f1_score_metrics = best_f1_score_metrics
+            self.log_dir = log_dir
+            self.fieldnames = field_name
+            self.train_progressbar = None
+            self.length_train = length_train
+            self.length_valid = length_valid
+            self.progress = 0
+            self.valid_freq = valid_freq
+            self.patience = patience
+            self.wait = 0
+            self.epoch_early_stopping = 0
+            self.tensorboard_dir = tensorboard_dir
+            self.best_weights = None
+            self.last_weights = None
+
+        def on_test_batch_end(self, batch, logs=None):
+            self.progress += 1
+            if self.length_train is not None and self.length_valid is not None:
+                self.train_progressbar.update(self.progress)
+
+        def on_train_batch_end(self, batch, logs=None):
+            self.progress += 1
+            if self.length_train is not None:
+                self.train_progressbar.update(self.progress)
+
+        def on_epoch_begin(self, epoch, logs=None):
+            epoch += 1
+            print("Epoch {}/{}".format(epoch, self.stopped_epoch))
+            self.log_train.write_mylines("Epoch {}/{}\n".format(epoch, self.stopped_epoch))
+            self.progress = 0
+            if epoch >= self.valid_freq and epoch % self.valid_freq == 0:
+                if self.length_train is not None and self.length_valid is not None:
+                    self.train_progressbar = keras.utils.Progbar(
+                        self.length_train + self.length_valid)
+            else:
+                if self.length_train is not None:
+                    self.train_progressbar = keras.utils.Progbar(self.length_train)
+
+        def on_epoch_end(self, epoch, logs=None):
+            epoch += 1
+            report_row = dict()
+            report_row['epoch'] = epoch
+            report_row['accuracy_train'] = logs['accuracy']
+            report_row['loss_train'] = logs['loss']
+            report_row['precision_train'] = logs['precision']
+            report_row['recall_train'] = logs['recall']
+
+            train_metrics = {
+                'accuracy': logs['accuracy'],
+                'loss': logs['loss'],
+                'precision': logs['precision'],
+                'recall': logs['recall'],
+            }
+            print("Training " + format_metrics(train_metrics))
+            self.log_train.write_mylines("Training " + format_metrics(train_metrics) + '\n')
+
+            confusion_matrix = logs['confusion_matrix']
+            cm_str = print_cm(confusion_matrix, self.lbl_train.keys(), False)
+            self.log_train.write_mylines("Confusion \n" + cm_str + '\n')
+
+            for f in os.listdir(self.last_checkpoint_dir):
+                os.remove(os.path.join(self.last_checkpoint_dir, f))
+
+            self.model.save_weights(
+                os.path.join(self.last_checkpoint_dir, self.model_name + "-epoch-{}.weights.h5".format(epoch)))
+
+            confusion_matrix = np.asarray(confusion_matrix)
+            FP = confusion_matrix.sum(axis=0) - np.diag(confusion_matrix)
+            FN = confusion_matrix.sum(axis=1) - np.diag(confusion_matrix)
+            TP = np.diag(confusion_matrix)
+            TPR = TP / (TP + FN)
+            PPV = TP / (TP + FP)
+            squared_error_metrics_train = 0
+            f1_score_metrics_train = 0
+            for i, c in enumerate(self.lbl_train.keys()):
+                if (1 - TPR[i]) > 0 and (1 - PPV[i]) > 0:
+                    squared_error_metrics_train += (1 - TPR[i]) * (1 - TPR[i]) + (1 - PPV[i]) * (1 - PPV[i])
+                    f1_score_metrics_train += 2 * TPR[i] * PPV[i] / (TPR[i] + PPV[i])
+                    print('{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i],
+                                                               2 * TPR[i] * PPV[i] / (TPR[i] + PPV[i])))
+                    self.log_train.write_mylines(
+                        '{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i], 2 * TPR[i] * PPV[i]
+                                                             / (TPR[i] + PPV[i])) + '\n')
+                else:
+                    print('{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i],
+                                                               2 * TPR[i] * PPV[i] / (TPR[i] + PPV[i])))
+                    self.log_train.write_mylines(
+                        '{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i], 2 * TPR[i] * PPV[i]
+                                                             / (TPR[i] + PPV[i])) + '\n')
+                    squared_error_metrics_train = np.nan
+                    f1_score_metrics_train = np.nan
+                    break
+
+            f1_score_metrics_train = f1_score_metrics_train / len(self.lbl_train.keys())
+            if self.tensorboard_dir is not None:
+                with tf.summary.create_file_writer(self.tensorboard_dir + '/train').as_default():
+                    tf.summary.scalar('squared_error', squared_error_metrics_train, step=epoch - 1)
+                    tf.summary.scalar('f1_score', f1_score_metrics_train, step=epoch - 1)
+
+            report_row['squared_error_metrics_train'] = squared_error_metrics_train
+            report_row['f1_score_metrics_train'] = f1_score_metrics_train
+
+            print('squared_error_metrics_train :{}'.format(squared_error_metrics_train))
+            print('f1_score_metrics_train :{}'.format(f1_score_metrics_train))
+            self.log_train.write_mylines(
+                'squared_error_metrics_train :{}'.format(squared_error_metrics_train) + '\n')
+            self.log_train.write_mylines(
+                'f1_score_metrics_train :{}'.format(f1_score_metrics_train) + '\n')
+            # Eval region
+            if epoch >= self.valid_freq and epoch % self.valid_freq == 0:
+                val_metrics = {
+                    'accuracy': logs['val_accuracy'],
+                    'loss': logs['val_loss'],
+                    'precision': logs['val_precision'],
+                    'recall': logs['val_recall']
+                }
+                print("Validation " + format_metrics(val_metrics))
+                str_val_metrics = format_metrics(val_metrics)
+                num_val_metrics = re.findall(r'\d+\.\d+', str_val_metrics)
+                self.log_train.write_mylines("Validation " + format_metrics(val_metrics) + '\n')
+
+                confusion_matrix = logs['val_confusion_matrix']
+                cm_str = print_cm(confusion_matrix, self.lbl_train.keys(), False)
+                self.log_train.write_mylines("Confusion \n" + cm_str + '\n')
+
+                report_row['accuracy_eval'] = val_metrics['accuracy']
+                report_row['recall_eval'] = val_metrics['recall']
+                report_row['precision_eval'] = val_metrics['precision']
+                report_row['loss_eval'] = val_metrics['loss']
+
+                confusion_matrix = np.asarray(confusion_matrix)
+                FP = confusion_matrix.sum(axis=0) - np.diag(confusion_matrix)
+                FN = confusion_matrix.sum(axis=1) - np.diag(confusion_matrix)
+                TP = np.diag(confusion_matrix)
+                TPR = TP / (TP + FN)
+                PPV = TP / (TP + FP)
+                squared_error_metrics_eval = 0
+                f1_score_metrics_eval = 0
+                for i, c in enumerate(self.lbl_val.keys()):
+                    if (1 - TPR[i]) > 0 and (1 - PPV[i]) > 0:
+                        squared_error_metrics_eval += (1 - TPR[i]) * (1 - TPR[i]) + (1 - PPV[i]) * (
+                                1 - PPV[i])
+                        f1_score_metrics_eval += 2 * TPR[i] * PPV[i] / (TPR[i] + PPV[i])
+                        print('{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i],
+                                                                   2 * TPR[i] * PPV[i] / (
+                                                                           TPR[i] + PPV[i])))
+                        self.log_train.write_mylines(
+                            '{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i], 2 * TPR[i] * PPV[i]
+                                                                 / (TPR[i] + PPV[i])) + '\n')
+                    else:
+                        print('{} - se: {}; p+: {}; f1: {}'.format(c, TPR[i], PPV[i],
+                                                                   2 * TPR[i] * PPV[i] / (
+                                                                           TPR[i] + PPV[i])))
+                        self.log_train.write_mylines('{} - se: {}; p+: {}; f1: {}'
+                                                     .format(c, TPR[i], PPV[i],
+                                                             2 * TPR[i] * PPV[i] / (
+                                                                     TPR[i] + PPV[i])) + '\n')
+                        squared_error_metrics_eval = np.nan
+                        f1_score_metrics_eval = np.nan
+                        break
+
+                f1_score_metrics_eval = f1_score_metrics_eval / len(self.lbl_val.keys())
+
+                if self.tensorboard_dir is not None:
+                    with tf.summary.create_file_writer(
+                            self.tensorboard_dir + '/validation').as_default():
+                        tf.summary.scalar('squared_error', squared_error_metrics_eval, step=epoch - 1)
+                        tf.summary.scalar('f1_score', f1_score_metrics_eval, step=epoch - 1)
+
+                report_row['squared_error_metrics_eval'] = squared_error_metrics_eval
+                report_row['f1_score_metrics_eval'] = f1_score_metrics_eval
+                print('squared_error_metrics_eval :{}'.format(squared_error_metrics_eval))
+                print('f1_score_metrics_eval :{}'.format(f1_score_metrics_eval))
+                self.log_train.write_mylines(
+                    'squared_error_metrics_eval :{}'.format(squared_error_metrics_eval) + '\n')
+                self.log_train.write_mylines(
+                    'f1_score_metrics_eval :{}'.format(f1_score_metrics_eval) + '\n')
+                # endregion Eval
+
+                # region Save model
+                if self.best_loss < 0 or float(num_val_metrics[1]) < self.best_loss:
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    self.log_train.write_mylines(
+                        "Found better checkpoint! Saving to {}\n".format(self.best_loss_checkpoint_dir))
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    print("===========================================================================")
+                    print("Found loss better checkpoint! Saving to {}".format(
+                        self.best_loss_checkpoint_dir))
+                    print("===========================================================================")
+                    for f in os.listdir(self.best_loss_checkpoint_dir):
+                        os.remove(os.path.join(self.best_loss_checkpoint_dir, f))
+
+                    self.model.save_weights(
+                        os.path.join(self.best_loss_checkpoint_dir,
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
+                    self.best_loss = float(num_val_metrics[1])
+                    self.bk_metric["best_loss"] = self.best_loss
+                    bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
+                                          'w')
+                    json.dump(self.bk_metric, bk_metric_file)
+                    bk_metric_file.close()
+                    self.last_weights = self.model.get_weights()
+
+                if not math.isnan(squared_error_metrics_eval) and \
+                        (squared_error_metrics_eval < self.best_squared_error_metrics or
+                         self.best_squared_error_metrics < 0):
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    self.log_train.write_mylines(
+                        "Found better checkpoint! Saving to {}\n".format(
+                            self.best_squared_error_checkpoint_dir))
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    print("===========================================================================")
+                    print("Found best new metric checkpoint! Saving to {}".format(
+                        self.best_squared_error_checkpoint_dir))
+                    print("===========================================================================")
+                    for f in os.listdir(self.best_squared_error_checkpoint_dir):
+                        os.remove(os.path.join(self.best_squared_error_checkpoint_dir, f))
+
+                    self.model.save_weights(
+                        os.path.join(self.best_squared_error_checkpoint_dir,
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
+                    self.best_squared_error_metrics = squared_error_metrics_eval
+                    self.bk_metric["best_squared_error_metrics"] = self.best_squared_error_metrics
+                    bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
+                                          'w')
+                    json.dump(self.bk_metric, bk_metric_file)
+                    bk_metric_file.close()
+                    self.wait = 0
+                    # Record the best weights if current results is better (less).
+                    self.best_weights = self.model.get_weights()
+                elif not math.isnan(
+                        squared_error_metrics_eval) and self.best_squared_error_metrics >= 0:
+                    self.wait += 1
+                    if self.wait > self.patience:
+                        self.epoch_early_stopping = epoch
+                        self.model.stop_training = True
+                        self.log_train.write_mylines(
+                            "======================================================================\n")
+                        self.log_train.write_mylines("Restoring model weights from best new metric\n")
+                        self.log_train.write_mylines(
+                            "======================================================================\n")
+                        self.model.set_weights(self.best_weights)
+                else:
+                    self.wait += 1
+                    if self.wait > self.patience:
+                        self.epoch_early_stopping = epoch
+                        self.model.stop_training = True
+                        self.log_train.write_mylines(
+                            "======================================================================\n")
+                        self.log_train.write_mylines("Restoring model weights from loss better\n")
+                        self.log_train.write_mylines(
+                            "======================================================================\n")
+                        self.model.set_weights(self.last_weights)
+
+                if not math.isnan(f1_score_metrics_eval) and (
+                        f1_score_metrics_eval > self.best_f1_score_metrics
+                        or self.best_f1_score_metrics < 0):
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    self.log_train.write_mylines(
+                        "Found better checkpoint! Saving to {}\n".format(self.best_f1_checkpoint_dir))
+                    self.log_train.write_mylines(
+                        "======================================================================\n")
+                    print("===========================================================================")
+                    print("Found best new f1 score checkpoint! Saving to {}".format(
+                        self.best_f1_checkpoint_dir))
+                    print("===========================================================================")
+                    for f in os.listdir(self.best_f1_checkpoint_dir):
+                        os.remove(os.path.join(self.best_f1_checkpoint_dir, f))
+
+                    self.model.save_weights(
+                        os.path.join(self.best_f1_checkpoint_dir,
+                                     self.model_name + "-epoch-{}.weights.h5".format(epoch)))
+                    self.best_f1_score_metrics = f1_score_metrics_eval
+                    self.bk_metric["best_f1_score_metrics"] = self.best_f1_score_metrics
+                    bk_metric_file = open('{}/{}_bk_metric.txt'.format(self.log_dir, self.model_name),
+                                          'w')
+                    json.dump(self.bk_metric, bk_metric_file)
+                    bk_metric_file.close()
+
+                sys.stdout.flush()
+                # endregion Save model
+
+            with open(self.log_dir + '/{}_log.csv'.format(self.model_name), mode='a+') as report_file:
+                report_writer = csv.DictWriter(report_file, fieldnames=self.fieldnames)
+                report_writer.writerow(report_row)
+
+        def on_train_end(self, logs=None):
+            if self.epoch_early_stopping > 0:
+                self.log_train.write_mylines(
+                    "======================================================================\n")
+                self.log_train.write_mylines(
+                    "Early stopping! model weights from the end of the best squared_error_metrics_eval\n")
+                self.log_train.write_mylines(
+                    "======================================================================\n")
+                print("Epoch %05d: early stopping" % (self.stopped_epoch + 1))
+
+    class CustomRecall(keras.metrics.Recall):
+        def __init__(self,
+                     class_id=None,
+                     name=None):
+            super(CustomRecall, self).__init__(class_id=class_id, name=name)
+
+        def update_state(self, y_true, y_pred, sample_weight=None):
+            y_pred = tf.nn.softmax(y_pred, axis=-1)
+            return super(CustomRecall, self).update_state(y_true, y_pred, sample_weight)
+
+        def result(self):
+            return super(CustomRecall, self).result()
+
+        def reset_states(self):
+            super(CustomRecall, self).reset_states()
+
+        def get_config(self):
+            return super(CustomRecall, self).get_config()
+
+    class CustomPrecision(keras.metrics.Precision):
+        def __init__(self,
+                     class_id=None,
+                     name=None):
+            super(CustomPrecision, self).__init__(class_id=class_id, name=name)
+
+        def update_state(self, y_true, y_pred, sample_weight=None):
+            y_pred = tf.nn.softmax(y_pred, axis=-1)
+            return super(CustomPrecision, self).update_state(y_true, y_pred, sample_weight)
+
+        def result(self):
+            return super(CustomPrecision, self).result()
+
+        def reset_states(self):
+            super(CustomPrecision, self).reset_states()
+
+        def get_config(self):
+            return super(CustomPrecision, self).get_config()
+
     def _preprocess_proto(example_proto, feature_len, label_len, class_num):
         """Read sample from protocol buffer."""
         encoding_scheme = {
@@ -186,265 +607,7 @@ def train_beat_classification(use_gpu_index,
         # return sample, label
         return tf.expand_dims(tf.expand_dims(sample, axis=0), axis=-1), tf.expand_dims(label, axis=0)
 
-    class ConfusionMatrix(keras.callbacks.Callback):
-        """
-        Callback for CM, per-class F1 using a tf.data.Dataset validation set.
-
-        Args:
-            validation_dataset (tf.data.Dataset): The validation dataset.
-                It should yield tuples of (features, labels).
-                Labels MUST be integers (not one-hot encoded) for this callback.
-            num_classes (int): The total number of classes. Must be provided.
-            class_names (list): Optional list of class names for plotting/reporting.
-            print_every (int): Print metrics every N epochs. Default is 1.
-            plot_every (int): Plot CM every N epochs. Set to 0 to disable. Default is 1.
-            log_dir (str): Optional TensorBoard log directory for CM plots.
-            file_writer (tf.summary.SummaryWriter): Optional existing TB writer for CM.
-            steps (int): Number of steps (batches) in the validation dataset.
-                         If None, it will iterate until the dataset is exhausted,
-                         which is recommended for tf.data.Dataset.
-        """
-
-        def __init__(self, validation_dataset, num_classes, class_names=None, best_f1_checkpoint_dir=None, best_loss_checkpoint_dir=None,
-                     print_every=1, plot_every=1, log_dir=None, file_writer=None, model_name="",
-                     steps=None):
-            super().__init__()
-            if not isinstance(validation_dataset, tf.data.Dataset):
-                raise TypeError("`validation_dataset` must be a tf.data.Dataset.")
-            if not isinstance(num_classes, int) or num_classes <= 0:
-                raise ValueError("`num_classes` must be a positive integer.")
-
-            self.val_dataset = validation_dataset
-            self.num_classes = num_classes
-            self.class_names_provided = class_names
-            self.print_every = max(1, int(print_every))
-            self.plot_every = max(0, int(plot_every))
-            self.log_dir = log_dir
-            self.file_writer_cm = file_writer
-            self.steps = steps  # Number of batches to iterate over
-            self.f1_macro = -1
-            self.f1_avg = -1
-            self.model_name = model_name
-
-            self._setup_class_names()
-            self.best_f1_checkpoint_dir = best_loss_checkpoint_dir
-            self.best_f1_avg_checkpoint_dir = best_f1_checkpoint_dir
-
-            if self.log_dir and self.plot_every > 0 and self.file_writer_cm is None:
-                cm_log_path = os.path.join(self.log_dir, 'cm')
-                print(f"Confusion matrix plots will be logged to TensorBoard: {cm_log_path}")
-                # Ensure parent directory exists if log_dir is nested
-                os.makedirs(os.path.dirname(cm_log_path), exist_ok=True)
-                try:
-                    self.file_writer_cm = tf.summary.create_file_writer(cm_log_path)
-                    print("TensorBoard SummaryWriter created successfully.")
-                except Exception as e:
-                    print(f"Error creating SummaryWriter at {cm_log_path}: {e}")
-                    self.file_writer_cm = None  # Disable logging if creation fails
-
-        def _setup_class_names(self):
-            """Sets up class names based on num_classes."""
-            if self.class_names_provided is None:
-                self.class_names = [str(i) for i in range(self.num_classes)]
-            elif len(self.class_names_provided) != self.num_classes:
-                print(f"\nWarning: Provided class_names length ({len(self.class_names_provided)}) "
-                      f"doesn't match provided num_classes ({self.num_classes}). "
-                      f"Using default names ['0', '1', ...].")
-                self.class_names = [str(i) for i in range(self.num_classes)]
-            else:
-                self.class_names = self.class_names_provided
-
-        def _plot_confusion_matrix(self, cm, epoch):
-            """ Helper function to plot the confusion matrix."""
-            figure = plt.figure(figsize=(max(6, self.num_classes * 0.8), max(6, self.num_classes * 0.8)))
-            sns.heatmap(cm, annot=True, fmt="d", cmap=plt.cm.Blues, square=True,
-                        xticklabels=self.class_names, yticklabels=self.class_names)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-            plt.ylabel('True label')
-            plt.xlabel('Predicted label')
-            plt.title(f'Confusion Matrix - Epoch {epoch + 1}')
-            return figure
-
-        def _log_cm_to_tensorboard(self, figure, epoch):
-            """ Writes the plot image to TensorBoard summary."""
-            if not self.file_writer_cm:
-                print("Skipping TensorBoard CM plot logging: file_writer not available.")
-                plt.close(figure)  # Still close the figure
-                return
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            plt.close(figure)
-            buf.seek(0)
-            image = tf.image.decode_png(buf.getvalue(), channels=4)
-            image = tf.expand_dims(image, 0)
-            try:
-                # Ensure writer is correctly initialized
-                if self.file_writer_cm._is_init:
-                    with self.file_writer_cm.as_default(step=epoch):
-                        tf.summary.image("Confusion Matrix", image)
-                    self.file_writer_cm.flush()
-                    # print(f"CM plot logged for epoch {epoch + 1}") # Optional verbose log
-                else:
-                    print("Skipping TensorBoard CM plot logging: file_writer not initialized.")
-
-            except Exception as e:
-                print(f"\nError logging confusion matrix to TensorBoard: {e}")
-
-        def on_epoch_end(self, epoch, logs=None):
-            logs = logs or {}
-            all_y_true = []
-            all_y_pred = []
-            print(f"\nEpoch {epoch + 1}: Calculating validation metrics...", end='')
-
-            # Iterate over the validation dataset
-            try:
-                # Use take(steps) if steps is defined, otherwise iterate until exhausted
-                dataset_to_iterate = self.val_dataset.take(self.steps) if self.steps else self.val_dataset
-                for batch_num, (x_batch, y_batch) in enumerate(dataset_to_iterate):
-                    # Predict
-                    y_pred_raw_batch = self.model.predict_on_batch(x_batch)  # Use predict_on_batch for efficiency
-
-                    # Process predictions
-                    if y_pred_raw_batch.ndim == 1 or y_pred_raw_batch.shape[-1] == 1:
-                        y_pred_batch = (y_pred_raw_batch > 0.5).astype(int).flatten()
-                        if self.num_classes < 2: self.num_classes = 2  # Ensure num_classes is 2 for binary
-                    elif y_pred_raw_batch.ndim > 1 and y_pred_raw_batch.shape[-1] > 1:
-                        y_pred_batch = np.argmax(y_pred_raw_batch, axis=-1)
-                    else:
-                        print(
-                            f"\nWarning: Unusual model output shape {y_pred_raw_batch.shape} in batch {batch_num}. Skipping batch.")
-                        continue  # Skip this batch if output is weird
-
-                    # Process true labels (assuming integer labels in the dataset)
-                    # Convert eager tensor to numpy
-                    # y_true_batch = y_batch.numpy().flatten().astype(int)
-                    y_true_batch = np.argmax(y_batch, axis=-1).flatten().astype(int)
-
-                    all_y_true.append(y_true_batch)
-                    all_y_pred.append(y_pred_batch)
-
-                # Concatenate results from all batches
-                if not all_y_true:
-                    print(" No validation batches processed. Skipping metrics calculation.")
-                    logs['val_f1_macro'] = 0.0  # Log default for checkpointing
-                    return
-
-                y_true = np.concatenate(all_y_true)
-                y_pred = np.concatenate(all_y_pred).flatten()
-                print(" Done.")  # Finish the "Calculating..." message
-
-            except Exception as e:
-                print(f" Error during validation data iteration or prediction: {e}")
-                logs['val_f1_macro'] = 0.0  # Log default for checkpointing
-                return  # Exit if iteration fails
-
-            # --- Calculate Metrics ---
-            labels_range = list(range(self.num_classes))
-            try:
-                cm = confusion_matrix(y_true, y_pred, labels=labels_range)
-                f1_scores_per_class = f1_score(y_true, y_pred, labels=labels_range, average=None, zero_division=0)
-                f1_macro = f1_score(y_true, y_pred, labels=labels_range, average='macro', zero_division=0)
-                f1_weighted = f1_score(y_true, y_pred, labels=labels_range, average='weighted', zero_division=0)
-            except ValueError as e:
-                print(f"\nError calculating metrics (label mismatch?): {e}")
-                cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
-                f1_scores_per_class = np.zeros(self.num_classes)
-                f1_macro = -1.0
-                f1_weighted = -1.0
-            except Exception as e:
-                print(f"\nUnexpected error calculating metrics: {e}")
-                cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
-                f1_scores_per_class = np.zeros(self.num_classes)
-                f1_macro = -1.0
-                f1_weighted = -1.0
-
-            # --- Print Metrics ---
-            if (epoch + 1) % self.print_every == 0:
-                print(f"\n----- Epoch {epoch + 1} Validation Metrics -----")
-                print("Confusion Matrix:")
-                print(cm)
-                print("\nPer-Class F1 Scores:")
-                if len(f1_scores_per_class) == len(self.class_names):
-                    for i, score in enumerate(f1_scores_per_class):
-                        print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
-                else:
-                    print(f"  F1 Scores raw: {f1_scores_per_class}")
-
-                print(f"\nMacro Avg F1-Score:    {f1_macro:.4f}")
-                print(f"Weighted Avg F1-Score: {f1_weighted:.4f}")
-                print("------------------------------------")
-
-                log_file = open(self.log_dir + "/train_log.txt", "a+")
-                log_file.writelines(f"\n----- Epoch {epoch + 1} Validation Metrics -----\n")
-                log_file.writelines("Confusion Matrix:\n")
-                log_file.writelines(f"{cm}")
-                log_file.writelines("\nPer-Class F1 Scores:\n")
-
-                if (self.f1_macro > f1_macro and f1_macro != -1) or self.f1_macro == -1:
-                    self.f1_macro = f1_macro
-                    ckt_name = os.path.join(self.best_f1_checkpoint_dir,self.model_name + "-epoch-{}.weights.h5".format(epoch))
-                    for f in os.listdir(self.best_f1_checkpoint_dir):
-                        os.remove(os.path.join(self.best_f1_checkpoint_dir, f))
-
-                    log_file.writelines(f"==================================================\n")
-                    log_file.writelines(f"\nMacro F1-Score:    {f1_macro:.4f}\n")
-                    log_file.writelines(f"==================================================\n")
-                    self.model.save_weights(ckt_name)
-
-                if (self.f1_avg > f1_weighted and f1_weighted != -1) or self.f1_avg == -1:
-                    self.f1_avg = f1_weighted
-                    ckt_name = os.path.join(self.best_f1_avg_checkpoint_dir,self.model_name + "-epoch-{}.weights.h5".format(epoch))
-                    for f in os.listdir(self.best_f1_avg_checkpoint_dir):
-                        os.remove(os.path.join(self.best_f1_avg_checkpoint_dir, f))
-
-                    log_file.writelines(f"==================================================\n")
-                    log_file.writelines(f"\nMacro Avg F1-Score:    {f1_weighted:.4f}\n")
-                    log_file.writelines(f"==================================================\n")
-                    self.model.save_weights(ckt_name)
-
-
-                if len(f1_scores_per_class) == len(self.class_names):
-                    for i, score in enumerate(f1_scores_per_class):
-                        log_file.writelines(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}\n")
-                else:
-                    log_file.writelines(f"  F1 Scores raw: {f1_scores_per_class}\n")
-
-                log_file.writelines(f"\nMacro Avg F1-Score:    {f1_macro:.4f}\n")
-                log_file.writelines(f"Weighted Avg F1-Score: {f1_weighted:.4f}\n")
-                log_file.writelines("------------------------------------\n")
-                log_file.close()
-
-
-            # --- Plot Confusion Matrix ---
-            if self.plot_every > 0 and (epoch + 1) % self.plot_every == 0:
-                try:
-                    figure = self._plot_confusion_matrix(cm, epoch)
-                    if self.file_writer_cm:
-                        self._log_cm_to_tensorboard(figure, epoch)
-                    else:
-                        plt.show()
-                        plt.close(figure)
-                except Exception as e:
-                    print(f"\nError plotting/logging confusion matrix: {e}")
-
-            # --- Log Metrics to Keras logs dictionary ---
-            logs['val_f1_macro'] = f1_macro
-            logs['val_f1_weighted'] = f1_weighted
-            if len(f1_scores_per_class) == len(self.class_names):
-                for i, score in enumerate(f1_scores_per_class):
-                    log_key = f'val_f1_{self.class_names[i]}'
-                    log_key = ''.join(c if c.isalnum() else '_' for c in log_key)
-                    logs[log_key] = score
-            else:
-                for i, score in enumerate(f1_scores_per_class):
-                    logs[f'val_f1_class_{i}'] = score
-
-            if cm.shape == (2, 2):
-                tn, fp, fn, tp = cm.ravel()
-                logs['val_tp'] = tp
-                logs['val_fp'] = fp
-                logs['val_fn'] = fn
-                logs['val_tn'] = tn
+    # with tf.device("/cpu:0"):
 
     train_filenames = _get_tfrecord_filenames(train_directory, True)
     train_dataset = tf.data.TFRecordDataset(train_filenames)
@@ -509,60 +672,114 @@ def train_beat_classification(use_gpu_index,
     optimizer = keras.optimizers.Adam(learning_rate=1e-3)
     # loss = keras.losses.CategoricalCrossentropy(from_logits=False)
     loss = keras.losses.BinaryCrossentropy(from_logits=from_logits)
+    # my_confusion = ConfusionMatrix(len(beat_class))
+    # confusion_metrics = my_confusion.generate_metrics()
 
-    # --- Instantiate Callbacks ---
+    if from_logits:
+        metrics = [
+            ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
+            CustomRecall(name='recall'),
+            CustomPrecision(name='precision'),
+            # CustomCategoricalAccuracy(name='accuracy')
+        ]
+        beat = [c for _, c in enumerate(beat_class.keys())]
+        for i in range(len(beat_class)):
+            metrics.append(CustomRecall(class_id=i, name='{}_Se'.format(beat[i])))
+            metrics.append(CustomPrecision(class_id=i, name='{}_P'.format(beat[i])))
+    else:
+        metrics = [
+            keras.metrics.CategoricalAccuracy(name='accuracy'),
+            ConfusionMatrix(classes=len(beat_class), name='confusion_matrix'),
+            # keras.metrics.AUC(from_logits=True, name='confusion_matrix'),
+            keras.metrics.Recall(name='recall'),
+            keras.metrics.Precision(name='precision')
+        ]
+        beat = [c for _, c in enumerate(beat_class.keys())]
+        for i in range(len(beat_class)):
+            metrics.append(keras.metrics.Recall(class_id=i, name='{}_Se'.format(beat[i])))
+            metrics.append(keras.metrics.Precision(class_id=i, name='{}_P'.format(beat[i])))
 
-    # a) Our custom callback for CM and F1 scores
-    # Pass integer labels y_val_int here
-    cm_f1_callback = ConfusionMatrix(
-        validation_dataset=val_dataset,
-        num_classes=len(list(beat_class.keys())),
-        class_names=list(beat_class.keys()),
-        print_every=1,
-        plot_every=0,  # Disable direct plotting if using TensorBoard heavily
-        log_dir=tensorboard_log_dir,  # Specify log dir for CM plots in TensorBoard
+
+    train_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+    if resume_from is not None:
+        begin_at_epoch = int(resume_from.split("-")[-1])
+        log_train.write_mylines("Restoring checkpoint from {}\n".format(resume_from))
+        log_train.write_mylines("Beginning at epoch {}\n".format(begin_at_epoch + 1))
+        print("Restoring checkpoint from {}".format(resume_from))
+        print("Beginning at epoch {}".format(begin_at_epoch + 1))
+        train_model.load_weights(tf.train.latest_checkpoint(last_checkpoint_dir)).expect_partial()
+    else:
+        begin_at_epoch = 0
+        print("===============================================================================")
+        print("WARNING: --resume_from checkpoint flag is not set. Training model from scratch.")
+        print("===============================================================================")
+
+    if bk_metric is None:
+        best_loss = -1
+        best_squared_error_metrics = -1
+        best_f1_score_metrics = -1
+        bk_metric = dict()
+        bk_metric["best_loss"] = -1
+        bk_metric["best_squared_error_metrics"] = -1
+        bk_metric["best_f1_score_metrics"] = -1
+        bk_metric["stop_train"] = False
+        bk_metric_file = open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'w')
+        json.dump(bk_metric, bk_metric_file)
+        bk_metric_file.close()
+    else:
+        # best_loss = bk_metric["best_loss"]
+        best_squared_error_metrics = bk_metric["best_squared_error_metrics"]
+        best_f1_score_metrics = bk_metric["best_f1_score_metrics"]
+
+    tensorboard_dir = model_dir + '/logs'
+    if not os.path.exists(tensorboard_dir):
+        os.makedirs(tensorboard_dir)
+        os.makedirs(tensorboard_dir + '/train')
+        os.makedirs(tensorboard_dir + '/validation')
+
+    log_callback = CustomCallback(
+        model_name=model_name,
+        log_train=log_train,
+        stopped_epoch=begin_at_epoch + epoch_num,
+        last_checkpoint_dir=last_checkpoint_dir,
         best_loss_checkpoint_dir=best_loss_checkpoint_dir,
+        best_squared_error_checkpoint_dir=best_squared_error_checkpoint_dir,
         best_f1_checkpoint_dir=best_f1_checkpoint_dir,
-        model_name=model_name
-    )
+        bk_metric=bk_metric,
+        lbl_train=beat_class,
+        lbl_val=val_class,
+        log_dir=log_dir,
+        field_name=fieldnames,
+        # best_loss=best_loss,
+        best_squared_error_metrics=best_squared_error_metrics,
+        best_f1_score_metrics=best_f1_score_metrics,
+        length_train=_calc_num_steps(datastore_dict['train']['total_sample'], batch_size),
+        length_valid=_calc_num_steps(datastore_dict['eval']['total_sample'], batch_size),
+        valid_freq=valid_freq,
+        patience=patience,
+        tensorboard_dir=tensorboard_dir)
 
-    # b) ModelCheckpoint to save the best model based on val_f1_macro
-    model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-        filepath=model_name + "/best_model_f1_macro_tf.weights.h5",
-        monitor='val_f1_macro',  # Monitor the macro F1 score calculated by our callback
-        mode='max',  # We want to maximize F1 score
-        save_best_only=True,  # Only save when the monitored quantity improves
-        save_weights_only=True,  # Set to False to save the entire model (`.keras` format recommended)
-        verbose=1  # Print messages when saving
-    )
-
-    # c) Standard TensorBoard callback for logging scalars (loss, acc, F1 scores)
-    tensorboard_callback = keras.callbacks.TensorBoard(
-        log_dir=tensorboard_log_dir,
-        histogram_freq=1,  # Optional: log histograms
-        write_graph=True  # Optional: log model graph
-    )
-
-    train_model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
     with tf.device('/gpu:{}'.format(use_gpu_index if use_gpu_index >= 0 else 0)):
         print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
         train_model.fit(x=train_dataset,
                         epochs=epoch_num,
-                        verbose=1,
-                        steps_per_epoch = datastore_dict["train"]["total_sample"]//batch_size,
-                        callbacks=[cm_f1_callback,             # Calculates metrics, logs them to `logs` dict
-                                   model_checkpoint_callback,  # Reads 'val_f1_macro' from `logs` and saves model
-                                   tensorboard_callback   ],  # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
+                        verbose=0,
+                        steps_per_epoch = 10, #datastore_dict["train"]["total_sample"]//batch_size - 2,
+                        callbacks=[log_callback],  # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
                         validation_data=val_dataset,
+                        # validation_freq=[valid_freq * (x + 1) for x in
+                        #                  range((begin_at_epoch + epoch_num) // valid_freq)],
                         class_weight=CLASS_WEIGHTS,
-                        validation_steps=1,
+                        validation_steps=2,
+                        # initial_epoch=begin_at_epoch
                         )
 
-    # bk_metric["stop_train"] = True
-    # bk_metric_file = open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'w')
-    # json.dump(bk_metric, bk_metric_file)
-    # bk_metric_file.close()
-    train_model.save_weights(os.path.join(last_checkpoint_dir, model_name + ".weights.h5"))
+    bk_metric["stop_train"] = True
+    bk_metric_file = open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'w')
+    json.dump(bk_metric, bk_metric_file)
+    bk_metric_file.close()
+
     log_train.write_mylines('\nEnd : {}\n'.format(str(datetime.datetime.now())))
 
     return False

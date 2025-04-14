@@ -1,4 +1,4 @@
-SAMPLING_RATE = 250
+
 
 #Beat2Beat INTERVAL
 THR_Beat2Beat = 0.250
