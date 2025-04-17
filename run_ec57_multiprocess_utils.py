@@ -1274,14 +1274,14 @@ def beat_classification(beat_model,
         # from copy import deepcopy
         # _total_beat = deepcopy(total_beat) * header.fs // sampling_rate
         # if len(dif_ann) > 0:
-        print(dif_ann)
+        # print(dif_ann)
         plt.title(os.path.basename(file_name))
         plt.plot(buf_record)
         plt.plot(total_beat, buf_record[total_beat], 'ro')
         plt.plot(ann_samples, buf_record[ann_samples], 'b*')
         [plt.annotate(total_symbol[i], (total_beat[i], buf_record[total_beat[i]])) for i in range(len(total_beat))]
-        if len(dif_ann) > 0:
-            [plt.axvspan(total_beat[i] - 10, total_beat[i] + 10, facecolor="r", alpha=0.5) for i in dif_ann]
+        # if len(dif_ann) > 0:
+        #     [plt.axvspan(i - 10, i + 10, facecolor="r", alpha=0.5) for i in dif_ann]
 
         plt.show()
 

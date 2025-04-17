@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
-from model_2D import beat_concat_seq3_250Hz
 import os
+import keras
+from model_2D import beat_concat_seq3_250Hz
 
-def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/train/train_00010-of-00024.tfrecord'):
+# def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/train/train_00010-of-00024.tfrecord'):
+def main(train_path, eval_path):
     def _preprocess_proto(example_proto, feature_len, label_len, class_num) :
         """Read sample from protocol buffer."""
         encoding_scheme = {
@@ -46,36 +48,8 @@ def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250
         'Q': []
     }
 
-
-
-    a=10
-    train_dataset = tf.data.TFRecordDataset(filename)
-    from functools import partial
-    train_dataset = train_dataset.map(partial(_preprocess_proto,
-                                              feature_len=1250,
-                                              label_len=78,
-                                              class_num=len(beat_class.keys())),
-                                      num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    while True:
-        try:
-            element = next(train_dataset)
-            # print(element)
-        except Exception as eStopIteration:
-        # Handle the end of the iterator
-            print(filename)
-            print("End of iterator: ".format(eStopIteration))
-    # for data in train_dataset.take(5):
-    #     sample = (data[0]).numpy()
-    #     label = (data[1]).numpy()
-    #
-    #     plt.plot(sample)
-
-    # plt.show()
-
-    train_filenames = _get_tfrecord_filenames(train_directory, True)
+    train_filenames = _get_tfrecord_filenames(train_path, True)
     train_dataset = tf.data.TFRecordDataset(train_filenames)
-
-    # train_dataset = tf.data.TFRecordDataset(filename)
     from functools import partial
     train_dataset = train_dataset.map(partial(_preprocess_proto,
                                               feature_len=1250,
@@ -83,7 +57,7 @@ def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250
                                               class_num=len(beat_class.keys())),
                                       num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    val_filenames = _get_tfrecord_filenames(eval_directory, False)
+    val_filenames = _get_tfrecord_filenames(eval_path, False)
     val_dataset = tf.data.TFRecordDataset(val_filenames)
 
     val_dataset = val_dataset.map(partial(_preprocess_proto,
@@ -92,39 +66,45 @@ def main(filename='/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250
                                           class_num=len(beat_class.keys())),
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    val_dataset = val_dataset.batch(32)
-    val_dataset = val_dataset.prefetch(32 * 5)
-
-    train_dataset = train_dataset.batch(32)
-    train_dataset = train_dataset.prefetch(32 * 5)
+    val_dataset = val_dataset.batch(16, drop_remainder=True)
+    # # val_dataset = val_dataset.prefetch(16 * 5)
+    #
+    train_dataset = train_dataset.batch(16, drop_remainder=True )
+    # # train_dataset = train_dataset.prefetch(16 * 5)
 
     model = beat_concat_seq3_250Hz(feature_len=1250,
                                    # model = beat_depthwise2_128Hz(feature_len=640,
                                    # model = beat_concat_sequeeze_add_more2_128Hz(feature_len=640,
                                    num_of_class=4,
                                    from_logits=False,
-                                   filters_rhythm_net=[8, 16, 8],  # [8, 16, 32],
+                                   filters_rhythm_net=[8, 24, 8],  # [8, 16, 32],
                                    num_loop=2,
                                    rate=0.5,
                                    name='beat_concat_seq3_250Hz')
     model.summary()
-    model.compile(optimizer='adam', loss='binary_crossentropy')
+    # model.compile(optimizer='adam', loss='binary_crossentropy')
+    optimizer = keras.optimizers.Adam(learning_rate=1e-3)
+    loss = keras.losses.CategoricalCrossentropy(from_logits=False)
+    model.compile(optimizer=optimizer, loss=loss)
     print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
     model.fit(train_dataset,
               epochs=1,
+              steps_per_epoch=1179776//16 - 1,
+              batch_size=16,
               # class_weight=CLASS_WEIGHTS,
               validation_data=val_dataset,
+              validation_steps=2,
               verbose=1)
 
 
-train_directory = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/train/"
-eval_directory = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/eval/"
+train_directory = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250402/250_05_78_0_0_0_6_0_0.99_c1/train/"
+eval_directory = "/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250402//250_05_78_0_0_0_6_0_0.99_c1/eval/"
 
 from glob import glob
-data_path = ("/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/train/")
+# data_path = ("/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/250228/250_05_78_0_0_0_6_0_0.99_c1/train/")
 
-files = glob(data_path + "*.tfrecord")
+# files = glob(train_directory + "*.tfrecord")
 # for file in files:
 #     main(file)
-main()
+main(train_directory, eval_directory)
 

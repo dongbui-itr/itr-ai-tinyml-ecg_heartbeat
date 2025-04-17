@@ -77,20 +77,20 @@ OFFSET_FRAME_BEAT = [0, 5]
 
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
-        ['mitdb', 'atr', 'atr'],
+        # ['mitdb', 'atr', 'atr'],
         ['nstdb', 'atr', 'atr'],
-        ['ahadb', 'atr', 'atr'],
-        ['escdb', 'atr', 'atr'],
-        ['afdb', 'qrs', 'atr'],
+        # ['ahadb', 'atr', 'atr'],
+        # ['escdb', 'atr', 'atr'],
+        # ['afdb', 'qrs', 'atr'],
     ]
 
 
 SAMP_FROM = 0
 SAMP_TO = 0
 
-# FILE_NAME = '100'
-# DEBUG = True
+FILE_NAME = '118e_6'
+DEBUG = True
 
-FILE_NAME = '*'
-DEBUG = False
+# FILE_NAME = '*'
+# DEBUG = False
 
