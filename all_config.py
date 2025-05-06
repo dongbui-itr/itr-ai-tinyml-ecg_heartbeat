@@ -56,7 +56,7 @@ NUM_EVENT_PER_PERSON = {
 TYPES_DATA = ['N', 'S', 'V', 'R', 'BRADY', 'TACHY', 'NOISE', 'AFIB']
 # TYPES_DATA = ['V']
 
-CLASS_TYPES = ['N', 'V', 'S', 'R']
+CLASS_TYPES = ['N', 'V', 'S', 'R', '|']
 
 CLASS_WEIGHTS = {
         0: 1,

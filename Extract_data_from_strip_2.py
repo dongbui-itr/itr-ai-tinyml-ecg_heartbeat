@@ -5,109 +5,186 @@ import wfdb as wf
 
 from matplotlib import pyplot as plt
 from glob import glob
+from collections import Counter
+from utils.reprocessing import butter_bandpass_filter
 
 DATA_PATH = "/mnt/4T_DATA/LLM/include-strip2/"
 OUTPUT_PATH = "/mnt/4T_DATA/DATA_4TINYML/strip2"
 DEBUG = False
 LEN = 5 #sec
 
-files = glob(f"{DATA_PATH}/*/*/*.hea")
-# files = glob(f"{DATA_PATH}/377796/*/*.hea")
-# files = glob(f"/mnt/4T_DATA/LLM/include-strip2/388215/6736f6b690e7350001219f47/event-strip-captured-2024-11-15-00-59-00-utc-06.hea")
-fp_log = open(f"{OUTPUT_PATH}/log_err.csv", "w")
-for no, file in enumerate(files):
-    print(f"{no}/{len(files)}")
-    try:
-        file = file[:-4]
-        header = wf.rdheader(file)
-        startSample = 0
-        stop_sampe = 0
-        for line in header.comments:
-            if "startSample" in line:
-                startSample = int(line.split(":")[-1])
-            elif "stopSample" in line:
-                stopSample = int(line.split(":")[-1])
-            elif "channel" in line:
-                channel = int(line.split(":")[-1])
-            elif "comment" in line:
-                type = line.split(":")[-1]
-            elif "eventType":
-                eventType = line.split(":")[-1]
+def random_studies(data_path=DATA_PATH,
+                   output_data_path=OUTPUT_PATH,
+                   output_info_path=OUTPUT_PATH):
+    folders = os.listdir(data_path)
+    fp_log = open(f"{output_data_path}/log_err.csv", "w")
+    sta_beat = dict()
+    sta_beat["Total"] = dict()
+    """
+    /mnt/4T_DATA/LLM/include-strip2//397447/67651668798462b95825c4cb/event-strip-captured-2024-12-19-08-41-40-utc-07
+    ('File formats must be valid WFDB dat formats:', ['8', '16', '32', '61', '80', '160', '212', '310', '311', '24', '508', '516', '524'])
+    """
+    for k, i_folder in enumerate(folders):
+        print(f"{k}/{len(folders)}: {i_folder}")
+        files = glob(f"{DATA_PATH}/{i_folder}/*/*.hea")
+        # files = glob(f"{DATA_PATH}/377796/*/*.hea")
+        # files = glob(f"/mnt/4T_DATA/LLM/include-strip2/388215/6736f6b690e7350001219f47/event-strip-captured-2024-11-15-00-59-00-utc-06.hea")
+        for no, file in enumerate(files):
+            # print(f"{no}/{len(files)}")
+            try:
+                file = file[:-4]
+                try:
+                    header = wf.rdheader(file)
+                    # continue
+                except:
+                    print(f"{k}/{len(folders)}: {i_folder}")
 
-        signal, _ = wf.rdsamp(file)
-        ann = wf.rdann(file, 'atr')
-        symbols = np.asarray(ann.symbol)
-        samples = np.asarray(ann.sample)
-        name = file.replace(DATA_PATH, '')
-        if DEBUG:
-            plt.figure(1)
-            plt.title(f"{name}\n{eventType}")
-            for ch in range(len(header.sig_name)):
-                if ch == 0:
-                    ax = plt.subplot(len(header.sig_name) * 100 + 11 + ch)
-                else:
-                    plt.subplot(len(header.sig_name) * 100 + 11 + ch, sharex=ax, sharey=ax)
+                if header.fs != 250:
+                    continue
 
-                plt.plot(signal[:, ch])
-                plt.plot(samples, signal[:, ch][samples], '*r')
-                [plt.annotate(symbols[i], (samples[i], 0.5)) for i, symbol in enumerate(symbols)]
-                plt.axvspan(startSample, stopSample, alpha=0.5)
+                startSample = 0
+                stop_sampe = 0
+                for line in header.comments:
+                    if "startSample" in line:
+                        startSample = int(line.split(":")[-1])
+                    elif "stopSample" in line:
+                        stopSample = int(line.split(":")[-1])
+                    elif "channel" in line:
+                        channel = int(line.split(":")[-1])
+                    elif "comment" in line:
+                        type = line.split(":")[-1]
+                    elif "eventType":
+                        eventType = line.split(":")[-1]
+                        eventType = eventType.replace(" ", "")
+                if startSample < 0:
+                    continue
 
-            # plt.show()
+                signal, _ = wf.rdsamp(file)
+                ann = wf.rdann(file, 'atr')
+                symbols = np.asarray(ann.symbol)
+                samples = np.asarray(ann.sample)
+                name = file.replace(DATA_PATH, '')
+                if DEBUG:
+                    plt.figure(1)
+                    plt.title(f"{name}\n{eventType}")
+                    for ch in range(len(header.sig_name)):
+                        if ch == 0:
+                            ax = plt.subplot(len(header.sig_name) * 100 + 11 + ch)
+                        else:
+                            plt.subplot(len(header.sig_name) * 100 + 11 + ch, sharex=ax, sharey=ax)
 
-        if (stopSample - startSample) < (LEN * header.fs):
-            # signal_segment = signal[startSample:startSample+LEN*header.fs, :]
-        # else:
-            startSample -= (LEN*header.fs - (stopSample - startSample))//2
+                        plt.plot(butter_bandpass_filter(signal[:, ch], 1, 40, 250))
+                        plt.plot(samples, signal[:, ch][samples], '*r')
+                        [plt.annotate(symbols[i], (samples[i], 0.5)) for i, symbol in enumerate(symbols)]
+                        plt.axvspan(startSample, stopSample, alpha=0.5)
 
-        signal_segment = signal[startSample:startSample+LEN*header.fs, :]
-        samples_segment = samples[np.flatnonzero((samples >= startSample) & (samples <= startSample + LEN * header.fs))] - startSample
-        symbols_segment = symbols[np.flatnonzero((samples >= startSample) & (samples <= startSample + LEN * header.fs))]
-        tmp = name.split("/")
+                    # plt.show()
 
-        if DEBUG:
-            plt.figure(2)
-            plt.title(f"{name}")
-            for ch in range(len(header.sig_name)):
-                if ch == 0:
-                    ax = plt.subplot(len(header.sig_name) * 100 + 11 + ch)
-                else:
-                    plt.subplot(len(header.sig_name) * 100 + 11 + ch, sharex=ax, sharey=ax)
+                if (stopSample - startSample) < (LEN * header.fs):
+                    startSample -= (LEN*header.fs - (stopSample - startSample))//2
 
-                plt.plot(signal_segment[:, ch])
-                plt.plot(samples_segment, signal_segment[:, ch][samples_segment], '*r')
-                [plt.annotate(symbols_segment[i], (samples_segment[i], 0.5)) for i, symbol in enumerate(symbols_segment)]
+                flag = True
+                start = startSample
+                cnt_segment = 0
+                while flag:
+                    if start > stopSample:
+                        start = stopSample - LEN * header.fs
 
-        plt.show()
-        plt.close(1)
-        plt.close(2)
+                    if start+LEN*header.fs > len(signal):
+                        break
 
-        OUTPUT_DIR = f"{OUTPUT_PATH}/{eventType}/{tmp[0]}/{tmp[1]}"
-        if not os.path.exists(OUTPUT_DIR):
-            os.makedirs(OUTPUT_DIR)
+                    signal_segment = signal[start:start+LEN*header.fs, :]
+                    samples_segment = samples[np.flatnonzero((samples >= start) & (samples <= start + LEN * header.fs))] - start
+                    symbols_segment = symbols[np.flatnonzero((samples >= start) & (samples <= start + LEN * header.fs))]
+                    tmp = name.split("/")
 
-        # annotations = wf.Annotation(record_name=tmp[-1],
-        #                             symbol=symbols_segment,
-        #                             sample=samples_segment,
-        #                             extension='atr',
-        #                             fs=header.fs,
-        #                             )
-        # annotations.wrann(write_dir=OUTPUT_DIR, write_fs=True)
-        # wf.wrsamp(record_name=tmp[-1],
-        #           p_signal=signal_segment,
-        #           fs=header.fs,
-        #           units=header.units,
-        #           sig_name=header.sig_name,
-        #           adc_gain=header.adc_gain,
-        #           fmt=header.fmt,
-        #           baseline=header.baseline,
-        #           comments=[f"from: {name}",
-        #                     f"eventType: {eventType}",
-        #                     f"channel: {channel}",
-        #                     ],
-        #           write_dir=OUTPUT_DIR
-        #           )
-    except Exception as err:
-        print(f"{file}\n{err}")
-        fp_log.writelines(f"{file}, {err}\n")
-        pass
+                    if DEBUG:
+                        plt.figure(2)
+                        plt.title(f"{name}")
+                        for ch in range(len(header.sig_name)):
+                            if ch == 0:
+                                ax = plt.subplot(len(header.sig_name) * 100 + 11 + ch)
+                            else:
+                                plt.subplot(len(header.sig_name) * 100 + 11 + ch, sharex=ax, sharey=ax)
+
+                            plt.plot(butter_bandpass_filter(signal_segment[:, ch], 1, 40, 250))
+                            plt.plot(samples_segment, butter_bandpass_filter(signal_segment[:, ch], 1, 40, 250)[samples_segment], '*r')
+                            [plt.annotate(symbols_segment[i], (samples_segment[i], 0.5)) for i, symbol in enumerate(symbols_segment)]
+                        plt.show()
+
+
+                    OUTPUT_DIR = f"{OUTPUT_PATH}/{eventType}/{tmp[0]}/{tmp[1]}"
+                    OUTPUT_DIR = OUTPUT_DIR.replace(" ", "")
+                    if not os.path.exists(OUTPUT_DIR):
+                        os.makedirs(OUTPUT_DIR)
+
+                    sta_segment = dict(Counter(symbols_segment))
+                    try:
+                        sta_beat[eventType]= dict()
+                        sta_beat[eventType]["studies"] = []
+                    except:
+                        pass
+
+                    if not tmp[1] in sta_beat[eventType]["studies"]:
+                        sta_beat[eventType]["studies"].append(tmp[1])
+
+                    for key in sta_segment.keys():
+                        try:
+                            sta_beat[eventType][key] += sta_segment[key]
+                        except:
+                            sta_beat[eventType][key] = sta_segment[key]
+
+                        try:
+                            sta_beat["Total"][key] += sta_segment[key]
+                        except:
+                            sta_beat["Total"][key] = sta_segment[key]
+
+                    if len(symbols_segment) == 0:
+                        symbols_segment = np.asarray(["+"])
+                        samples_segment = np.asarray([0])
+
+                    if not os.path.exists(f"{output_data_path}/{tmp[-1]}_{cnt_segment}"):
+                        annotations = wf.Annotation(record_name=f"{tmp[-1]}_{cnt_segment}",
+                                                    symbol=symbols_segment,
+                                                    sample=samples_segment,
+                                                    extension='atr',
+                                                    fs=header.fs,
+                                                    )
+                        annotations.wrann(write_dir=output_data_path, write_fs=True)
+                        wf.wrsamp(record_name=f"{tmp[-1]}_{cnt_segment}",
+                                  p_signal=signal_segment,
+                                  fs=header.fs,
+                                  units=header.units,
+                                  sig_name=header.sig_name,
+                                  adc_gain=header.adc_gain,
+                                  fmt=header.fmt,
+                                  baseline=header.baseline,
+                                  comments=[f"from: {name}",
+                                            f"eventType: {eventType}",
+                                            f"channel: {channel}",
+                                            ],
+                                  write_dir=output_data_path
+                                  )
+
+                    if start + LEN * header.fs >= stopSample:
+                        flag =False
+                    else:
+                        start += LEN * LEN * header.fs
+                        cnt_segment += 1
+
+                    plt.close(1)
+                    plt.close(2)
+
+            except Exception as err:
+                print(f"{file}\n{err}")
+                fp_log.writelines(f"{file}, {err}\n")
+                pass
+
+    import json
+    fp = open(output_info_path + '/log_info_data.json', 'w')
+    fp.write(json.dumps(sta_beat, indent=4))
+    fp.close()
+
+
+if __name__ == '__main__':
+    random_studies()

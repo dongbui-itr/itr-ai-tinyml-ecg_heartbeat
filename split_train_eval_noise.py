@@ -1,3 +1,4 @@
+import copy
 import os
 import shutil
 
@@ -10,846 +11,136 @@ from random import shuffle
 from glob import glob
 from collections import Counter
 
-DATAPATH = '/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/Collection_20231002/'
+DATAPATH = '/mnt/4T_DATA/DATA_4TINYML/strip2/'
+BEAT_TYPES = ['N', 'S', 'V', 'Q', 'R']
 
-
-def split_data_2(data_dir='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/Collection_20240510/',
-                 output_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', k=0):
+def split_data_2(data_dir=DATAPATH,
+                 output_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', ratio_train = 8 / 10, k=0):
     print("Mixing Study")
     if os.path.exists(output_path + 'log_data_noise.json'):
         shutil.move(output_path + 'log_data_noise.json', output_path + f'log_data_noise{k}.json')
+    while True:
+        statictis_type = {}
+        statictis_type["train"] = dict()
+        statictis_type["train"]["studyID"] = []
+        statictis_type["eval"] = dict()
+        statictis_type["eval"]["studyID"] = []
 
-    # types = ['S', 'V', 'R', 'N']
-    types = ['N', 'S', 'V', 'IVCD', 'IVCD-SE', 'IVCD-VE', 'TACHY', 'BRADY', 'NOISE', 'AFIB']
-    # types = ['N', 'S', 'V', 'IVCD', 'TACHY', 'BRADY', 'NOISE', 'AFIB'] #Best model 240527
-    # types = ['N', 'S', 'V', 'IVCD', 'IVCD-SE', 'IVCD-VE', 'TACHY', 'BRADY', 'AFIB']
-    # types = ['V']
-    # types = ['BRADY', 'noise']
-    # types = ['TACHY', 'BRADY']
+        for type in BEAT_TYPES:
+            statictis_type['total_{}'.format(type)] = 0
+            statictis_type["train"]['total_{}'.format(type)] = 0
+            statictis_type["eval"]['total_{}'.format(type)] = 0
 
-    statictis_type = {}
-    for _type in types:
-        if 'IVCD' in _type:
-            type = 'R'
-        elif 'NOISE' in _type:
-            type = 'Q'
-        else:
-            type = _type
-
-        if not type in list(statictis_type.keys()):
-            statictis_type[type] = {}
-
-        data_path = os.path.join(data_dir, 'export_{}'.format(_type.replace('IVCD', 'R').replace('-', '')))
-        if _type in ['NOISE', 'AFIB']:
-            studies_path = glob(data_path + '/*/*')
-        else:
-            studies_path = glob(data_path + '/*')
-
-        print('Number of {} files: {}'.format(type, len(studies_path)))
-        for i in types:
-            if 'IVCD' in i:
-                i = 'R'
-                # continue
-            elif 'NOISE' in i:
-                i = 'Q'
-
-            if '-' in i:
+        events = os.listdir(DATAPATH)
+        print(events)
+        for event in events:
+            if '.json' in event or '.csv' in event:
                 continue
+            k = 0
+            while(True):
+                k += 1
+                event_statictis_type = {}
+                event_statictis_type["train"] = dict()
+                event_statictis_type["train"]["studyID"] = []
+                event_statictis_type["eval"] = dict()
+                event_statictis_type["eval"]["studyID"] = []
+                print(event)
+                studies_path = os.listdir(f'{data_dir}/{event}/')
+                event_statictis_type[event] = {}
+                print('Number of {} files: {}'.format(event, len(studies_path)))
+                for type in BEAT_TYPES:
+                    event_statictis_type[event]['total_{}'.format(type)] = 0
+                    event_statictis_type["train"]['total_{}'.format(type)] = 0
+                    event_statictis_type["eval"]['total_{}'.format(type)] = 0
+                    # statictis_type["train"]["studyID"]['total_{}'.format(type)] = 0
+                    # statictis_type["eval"]["studyID"]['total_{}'.format(type)] = 0
 
-            statictis_type[type]['total_{}'.format(i)] = 0
+                idx = np.arange(len(studies_path), dtype=int)
+                np.random.shuffle(idx)
+                np.random.shuffle(idx)
+                # np.random.shuffle(idx)
+                # np.random.shuffle(idx)
+                # np.random.shuffle(idx)
+                cnt_study = 0
+                for study in studies_path:
+                    study_id = study.split('/')[-1]
+                    event_statictis_type[event][study_id] = {}
+                    if (not study_id in statictis_type["eval"]["studyID"] and cnt_study/len(studies_path) <= ratio_train) or study_id in statictis_type["train"]["studyID"]:
+                        flag_train = True
+                        cnt_study += 1
+                    else:
+                        flag_train = False
 
-        for study in studies_path:
-            study_id = study.split('/')[-1]
-            statictis_type[type][study_id] = {}
-            for i in types:
-                if 'IVCD' in i:
-                    i = 'R'
-                elif 'NOISE' in i:
-                    i = 'Q'
+                    for type in BEAT_TYPES:
+                        event_statictis_type[event][study_id]['total_{}'.format(type)] = 0
+                        event_statictis_type[event][study_id]['path'] = study_id
 
-                if '-' in i:
-                    continue
+                    files = [i[:-4] for i in glob(f'{data_dir}/{event}/{study}/*.atr')]
+                    for file in files:
+                        ann = wf.rdann(file, 'atr')
+                        symbol = ann.symbol
+                        symbol_statictis = Counter(symbol)
+                        if flag_train:
+                            if not study_id in event_statictis_type["train"]["studyID"]:
+                                event_statictis_type["train"]["studyID"].append(study_id)
+                        else:
+                            if not study_id in event_statictis_type["eval"]["studyID"]:
+                                event_statictis_type["eval"]["studyID"].append(study_id)
 
-                # statictis_type[type]['total_{}'.format(i)] = 0
-                statictis_type[type][study_id]['total_{}'.format(i)] = 0
-                statictis_type[type][study_id]['path'] = study
+                        for key in symbol_statictis.keys():
 
-            # events_id = glob(study + '/*')/
-            events_id = [study]
-            for event in events_id:
-                files = [i[:-4] for i in glob(event + '/*.atr')]
-                for file in files:
-                    ann = wf.rdann(file, 'atr')
-                    symbol = ann.symbol
-                    if 'NOISE' in file:
-                        symbol = ['Q'] * len(symbol)
+                            if key == '|':
+                                _key = 'Q'
+                            else:
+                                _key = copy.deepcopy(key)
+                            if _key not in BEAT_TYPES:
+                                print(f'key={key}')
+                                continue
 
-                    symbol_statictis = Counter(symbol)
-                    for key in symbol_statictis.keys():
-                        if 'NOISE' in file:
-                            key = 'Q'
-                        statictis_type[type][study_id]['total_{}'.format(key)] += symbol_statictis[key]
-                        statictis_type[type]['total_{}'.format(key)] += symbol_statictis[key]
+                            try:
+                                event_statictis_type[event][study_id]['total_{}'.format(_key)] += symbol_statictis[key]
+                                event_statictis_type[event]['total_{}'.format(_key)] += symbol_statictis[key]
+                                if flag_train:
+                                    event_statictis_type["train"]['total_{}'.format(_key)] += symbol_statictis[key]
+                                else:
+                                    event_statictis_type["eval"]['total_{}'.format(_key)] += symbol_statictis[key]
 
-    total_S_study = len(statictis_type['S'])
-    total_V_study = len(statictis_type['V'])
-    total_R_study = len(statictis_type['R'])
-    total_N_study = len(statictis_type['N'])
-    total_Q_study = len(statictis_type['Q'])
-    total_TACHY_study = len(statictis_type['TACHY'])
-    total_BRADY_study = len(statictis_type['BRADY'])
-    total_AFIB_study = len(statictis_type['AFIB'])
+                            except:
+                                a=10
 
-    ratio_train = 8 / 10
-    limit_train_S = int((total_S_study - len(types)) * ratio_train)
-    limit_train_V = int((total_V_study - len(types)) * ratio_train)
-    limit_train_R = int((total_R_study - len(types)) * ratio_train)
-    limit_train_N = int((total_N_study - len(types)) * ratio_train)
-    limit_train_NOISE = int((total_Q_study - len(types)) * ratio_train)
-    limit_train_TACHY = int((total_TACHY_study - len(types)) * ratio_train)
-    limit_train_BRADY = int((total_BRADY_study - len(types)) * ratio_train)
-    limit_train_AFIB = int((total_AFIB_study - len(types)) * ratio_train)
+                print(f'k={k}')
+                print(f"S: {event_statictis_type['train']['total_S']} vs {event_statictis_type['eval']['total_S']}")
+                print(f"V: {event_statictis_type['train']['total_V']} vs {event_statictis_type['eval']['total_V']}")
+                if ((event_statictis_type['train']['total_S'] > event_statictis_type['eval']['total_S'] and
+                        event_statictis_type['train']['total_V'] > event_statictis_type['eval']['total_V']) or
+                        (event_statictis_type[event]['total_S'] < 20 and event_statictis_type[event]['total_V'] < 20) or k > 10):
+                    break
 
-    ratio_eval = 2 / 10
-    limit_eval_S = int((total_S_study - len(types)) * ratio_eval)
-    limit_eval_V = int((total_V_study - len(types)) * ratio_eval)
-    limit_eval_R = int((total_R_study - len(types)) * ratio_eval)
-    limit_eval_N = int((total_N_study - len(types)) * ratio_eval)
-    limit_eval_Q = int((total_Q_study - len(types)) * ratio_eval)
+            for type in BEAT_TYPES:
+                statictis_type['total_{}'.format(type)] += event_statictis_type['train']['total_{}'.format(type)]
+                statictis_type['total_{}'.format(type)] += event_statictis_type['eval']['total_{}'.format(type)]
+                statictis_type["train"]['total_{}'.format(type)] += event_statictis_type['train']['total_{}'.format(type)]
+                statictis_type["eval"]['total_{}'.format(type)] += event_statictis_type['eval']['total_{}'.format(type)]
 
-    final_total_train_S = 0
-    final_total_train_V = 0
-    final_total_train_R = 0
-    final_total_train_N = 0
-    final_total_train_Q = 0
-    final_total_train_AFIB = 0
+            statictis_type[event] = event_statictis_type[event]
+            statictis_type[event] = event_statictis_type[event]
+            statictis_type["train"]["studyID"].extend(event_statictis_type['train']['studyID'])
+            statictis_type["eval"]["studyID"].extend(event_statictis_type['eval']['studyID'])
 
-    final_total_eval_S = 0
-    final_total_eval_V = 0
-    final_total_eval_R = 0
-    final_total_eval_N = 0
-    final_total_eval_Q = 0
-    final_total_eval_AFIB = 0
-
-    statictis_type['Train'] = {}
-    statictis_type['Eval'] = {}
-
-    for type in types:
-        if 'IVCD' in type:
-            type = 'R'
-        elif 'NOISE' in type:
-            type = 'Q'
-
-        if not type in list(statictis_type['Train'].keys()):
-            statictis_type['Train'][type] = {}
-            statictis_type['Eval'][type] = {}
-
-    ### S Region ###
-    times = 0
-    list_S_studies = [i for i in statictis_type['S'].keys() if not 'total_' in i]
-    while True:
-        times += 1
-        print('S_train: ', times)
-        shuffle(list_S_studies)
-        shuffle(list_S_studies)
-        S_in_S_study = 0
-        V_in_S_study = 0
-        R_in_S_study = 0
-        N_in_S_study = 0
-        Q_in_S_study = 0
-
-        for i in range(limit_train_S):
-            S_in_S_study += statictis_type['S'][list_S_studies[i]]['total_S']
-            V_in_S_study += statictis_type['S'][list_S_studies[i]]['total_V']
-            R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_R']
-            N_in_S_study += statictis_type['S'][list_S_studies[i]]['total_N']
-            Q_in_S_study += statictis_type['S'][list_S_studies[i]]['total_Q']
-
-        if S_in_S_study >= statictis_type['S']['total_S'] * ratio_train:
-            break
-
-    final_total_train_S += S_in_S_study
-    final_total_train_V += V_in_S_study
-    final_total_train_R += R_in_S_study
-    final_total_train_N += N_in_S_study
-    final_total_train_Q += Q_in_S_study
-    statictis_type['Train']['S']['Total_S_in_S_study'] = S_in_S_study
-    statictis_type['Train']['S']['Total_V_in_S_study'] = V_in_S_study
-    statictis_type['Train']['S']['Total_R_in_S_study'] = R_in_S_study
-    statictis_type['Train']['S']['Total_N_in_S_study'] = N_in_S_study
-    statictis_type['Train']['S']['Total_Q_in_S_study'] = N_in_S_study
-    statictis_type['Train']['S_study'] = list_S_studies[:limit_train_S]
-    statictis_type['Train']['S_study_path'] = []
-    [statictis_type['Train']['S_study_path'].append(statictis_type['S'][i]['path']) for i in list_S_studies[:limit_train_S]]
-
-    S_in_S_study = 0
-    V_in_S_study = 0
-    R_in_S_study = 0
-    N_in_S_study = 0
-    Q_in_S_study = 0
-
-    for i in range(limit_eval_S):
-        i += limit_train_S
-        S_in_S_study += statictis_type['S'][list_S_studies[i]]['total_S']
-        V_in_S_study += statictis_type['S'][list_S_studies[i]]['total_V']
-        R_in_S_study += statictis_type['S'][list_S_studies[i]]['total_R']
-        N_in_S_study += statictis_type['S'][list_S_studies[i]]['total_N']
-        Q_in_S_study += statictis_type['S'][list_S_studies[i]]['total_Q']
-
-    final_total_eval_S += S_in_S_study
-    final_total_eval_V += V_in_S_study
-    final_total_eval_R += R_in_S_study
-    final_total_eval_N += N_in_S_study
-    final_total_eval_N += Q_in_S_study
-    statictis_type['Eval']['S']['Total_S_in_S_study'] = S_in_S_study
-    statictis_type['Eval']['S']['Total_V_in_S_study'] = V_in_S_study
-    statictis_type['Eval']['S']['Total_R_in_S_study'] = R_in_S_study
-    statictis_type['Eval']['S']['Total_N_in_S_study'] = N_in_S_study
-    statictis_type['Eval']['S']['Total_Q_in_S_study'] = N_in_S_study
-    statictis_type['Eval']['S_study'] = list_S_studies[:limit_eval_S]
-    statictis_type['Eval']['S_study_path'] = []
-    [statictis_type['Eval']['S_study_path'].append(statictis_type['S'][i]['path']) for i in list_S_studies[limit_train_S:]]
-
-    ### V Region ###
-    times = 0
-    list_V_studies = [i for i in statictis_type['V'].keys() if not 'total_' in i]
-    while True:
-        times += 1
-        print('V_train: ', times)
-        shuffle(list_V_studies)
-        shuffle(list_V_studies)
-        S_in_V_study = 0
-        V_in_V_study = 0
-        R_in_V_study = 0
-        N_in_V_study = 0
-        Q_in_V_study = 0
-
-        ## Check V study in Eval S study
-        cnt = 0
-        indx = 0
-        list_V_studies_train = []
-        list_V_studies_eval = []
-        while cnt < limit_train_V and indx < len(list_V_studies):
-            if list_V_studies[indx] in statictis_type['Eval']['S_study']:
-                list_V_studies_eval.append(list_V_studies[indx])
+        flag_stop = True
+        for type in BEAT_TYPES:
+            if not type in ['S', 'V']:
+                continue
             else:
-                list_V_studies_train.append(list_V_studies[indx])
-                cnt += 1
-
-            indx += 1
-
-        while indx < len(list_V_studies):
-            list_V_studies_eval.append(list_V_studies[indx])
-            indx += 1
-
-        for i in list_V_studies_train:
-            S_in_V_study += statictis_type['V'][i]['total_S']
-            V_in_V_study += statictis_type['V'][i]['total_V']
-            R_in_V_study += statictis_type['V'][i]['total_R']
-            N_in_V_study += statictis_type['V'][i]['total_N']
-            Q_in_V_study += statictis_type['V'][i]['total_Q']
-
-        if V_in_V_study >= statictis_type['V']['total_V'] * ratio_train:
+                if statictis_type["train"]['total_{}'.format(type)]/statictis_type["eval"]['total_{}'.format(type)] <= 2:
+                    flag_stop = False
+        if flag_stop:
             break
 
-    final_total_train_S += S_in_V_study
-    final_total_train_V += V_in_V_study
-    final_total_train_R += R_in_V_study
-    final_total_train_N += N_in_V_study
-    final_total_train_Q += Q_in_V_study
-    statictis_type['Train']['V']['Total_S_in_V_study'] = S_in_V_study
-    statictis_type['Train']['V']['Total_V_in_V_study'] = V_in_V_study
-    statictis_type['Train']['V']['Total_R_in_V_study'] = R_in_V_study
-    statictis_type['Train']['V']['Total_N_in_V_study'] = N_in_V_study
-    statictis_type['Train']['V']['Total_Q_in_V_study'] = N_in_V_study
-    statictis_type['Train']['V_study'] = list_V_studies_train
-    statictis_type['Train']['V_study_path'] = []
-    [statictis_type['Train']['V_study_path'].append(statictis_type['V'][i]['path']) for i in list_V_studies[:limit_train_V]]
 
-    S_in_V_study = 0
-    V_in_V_study = 0
-    R_in_V_study = 0
-    N_in_V_study = 0
-    Q_in_V_study = 0
-
-    for i in list_V_studies_eval:
-        S_in_V_study += statictis_type['V'][i]['total_S']
-        V_in_V_study += statictis_type['V'][i]['total_V']
-        R_in_V_study += statictis_type['V'][i]['total_R']
-        N_in_V_study += statictis_type['V'][i]['total_N']
-        Q_in_V_study += statictis_type['V'][i]['total_Q']
-
-    final_total_eval_S += S_in_V_study
-    final_total_eval_V += V_in_V_study
-    final_total_eval_R += R_in_V_study
-    final_total_eval_N += N_in_V_study
-    final_total_eval_Q += Q_in_V_study
-    statictis_type['Eval']['V']['Total_S_in_V_study'] = S_in_V_study
-    statictis_type['Eval']['V']['Total_V_in_V_study'] = V_in_V_study
-    statictis_type['Eval']['V']['Total_R_in_V_study'] = R_in_V_study
-    statictis_type['Eval']['V']['Total_N_in_V_study'] = N_in_V_study
-    statictis_type['Eval']['V']['Total_Q_in_V_study'] = N_in_V_study
-    statictis_type['Eval']['V_study'] = list_V_studies_eval
-    statictis_type['Eval']['V_study_path'] = []
-    [statictis_type['Eval']['V_study_path'].append(statictis_type['V'][i]['path']) for i in list_V_studies[limit_train_V:]]
-
-    ### R Region ###
-    times = 0
-    list_R_studies = [i for i in statictis_type['R'].keys() if not 'total_' in i]
-    while True:
-        times += 1
-        print('R_train: ', times)
-        shuffle(list_R_studies)
-        shuffle(list_R_studies)
-        S_in_R_study = 0
-        V_in_R_study = 0
-        R_in_R_study = 0
-        N_in_R_study = 0
-        Q_in_R_study = 0
-
-        ## Check R study in Eval S or V study
-        cnt = 0
-        indx = 0
-        list_R_studies_train = []
-        list_R_studies_eval = []
-        while cnt < limit_train_R and indx < len(list_R_studies):
-            if list_R_studies[indx] in statictis_type['Eval']['S_study'] \
-                    or list_R_studies[indx] in statictis_type['Eval']['V_study']:
-                list_R_studies_eval.append(list_R_studies[indx])
-            else:
-                list_R_studies_train.append(list_R_studies[indx])
-                cnt += 1
-
-            indx += 1
-
-        while indx < len(list_R_studies):
-            list_R_studies_eval.append(list_R_studies[indx])
-            indx += 1
-
-        for i in list_R_studies_train:
-            S_in_R_study += statictis_type['R'][i]['total_S']
-            V_in_R_study += statictis_type['R'][i]['total_V']
-            R_in_R_study += statictis_type['R'][i]['total_R']
-            N_in_R_study += statictis_type['R'][i]['total_N']
-            Q_in_R_study += statictis_type['R'][i]['total_Q']
-
-        if R_in_R_study >= statictis_type['R']['total_R'] * ratio_train:
-            break
-
-    final_total_train_S += S_in_R_study
-    final_total_train_V += V_in_R_study
-    final_total_train_R += R_in_R_study
-    final_total_train_N += N_in_R_study
-    final_total_train_Q += Q_in_R_study
-    statictis_type['Train']['R']['Total_S_in_R_study'] = S_in_R_study
-    statictis_type['Train']['R']['Total_V_in_R_study'] = V_in_R_study
-    statictis_type['Train']['R']['Total_R_in_R_study'] = R_in_R_study
-    statictis_type['Train']['R']['Total_N_in_R_study'] = N_in_R_study
-    statictis_type['Train']['R']['Total_Q_in_R_study'] = N_in_R_study
-    statictis_type['Train']['R_study'] = list_R_studies_train
-    statictis_type['Train']['R_study_path'] = []
-    [statictis_type['Train']['R_study_path'].append(statictis_type['R'][i]['path']) for i in list_R_studies[:limit_train_R]]
-
-    # times = 0
-    # list_R_studies = list_R_studies[limit_train_R:]
-    #
-    # print('R_eval: ', times)
-    # shuffle(list_R_studies)
-    # shuffle(list_R_studies)
-    S_in_R_study = 0
-    V_in_R_study = 0
-    R_in_R_study = 0
-    N_in_R_study = 0
-    Q_in_R_study = 0
-
-    for i in list_R_studies_eval:
-        S_in_R_study += statictis_type['R'][i]['total_S']
-        V_in_R_study += statictis_type['R'][i]['total_V']
-        R_in_R_study += statictis_type['R'][i]['total_R']
-        N_in_R_study += statictis_type['R'][i]['total_N']
-        N_in_R_study += statictis_type['R'][i]['total_Q']
-
-    final_total_eval_S += S_in_R_study
-    final_total_eval_V += V_in_R_study
-    final_total_eval_R += R_in_R_study
-    final_total_eval_N += N_in_R_study
-    final_total_eval_Q += Q_in_R_study
-    statictis_type['Eval']['R']['Total_S_in_R_study'] = S_in_R_study
-    statictis_type['Eval']['R']['Total_V_in_R_study'] = V_in_R_study
-    statictis_type['Eval']['R']['Total_R_in_R_study'] = R_in_R_study
-    statictis_type['Eval']['R']['Total_N_in_R_study'] = N_in_R_study
-    statictis_type['Eval']['R']['Total_Q_in_R_study'] = Q_in_R_study
-    statictis_type['Eval']['R_study'] = list_R_studies_eval
-    statictis_type['Eval']['R_study_path'] = []
-    [statictis_type['Eval']['R_study_path'].append(statictis_type['R'][i]['path']) for i in list_R_studies[limit_train_R:]]
-
-    ### N Region ###
-    times = 0
-    list_N_studies = [i for i in statictis_type['N'].keys() if not 'total_' in i]
-    # while True:
-    #     times += 1
-    print('N_train: ', times)
-    shuffle(list_N_studies)
-    shuffle(list_N_studies)
-    S_in_N_study = 0
-    V_in_N_study = 0
-    R_in_N_study = 0
-    N_in_N_study = 0
-    Q_in_N_study = 0
-
-    ## Check N study in Eval S or V or R study
-    cnt = 0
-    indx = 0
-    list_N_studies_train = []
-    list_N_studies_eval = []
-    while cnt < limit_train_N and indx < len(list_N_studies):
-        if list_N_studies[indx] in statictis_type['Eval']['S_study'] \
-                or list_N_studies[indx] in statictis_type['Eval']['V_study'] \
-                or list_N_studies[indx] in statictis_type['Eval']['R_study']:
-            list_N_studies_eval.append(list_N_studies[indx])
-        else:
-            list_N_studies_train.append(list_N_studies[indx])
-            cnt += 1
-
-        indx += 1
-
-    while indx < len(list_N_studies):
-        list_N_studies_eval.append(list_N_studies[indx])
-        indx += 1
-
-    for i in list_N_studies_train:
-        S_in_N_study += statictis_type['N'][i]['total_S']
-        V_in_N_study += statictis_type['N'][i]['total_V']
-        R_in_N_study += statictis_type['N'][i]['total_R']
-        N_in_N_study += statictis_type['N'][i]['total_N']
-        Q_in_N_study += statictis_type['N'][i]['total_Q']
-
-    # if N_in_N_study >= statictis_type['N']['total_N'] * ratio_train:
-    #     break
-
-    final_total_train_S += S_in_N_study
-    final_total_train_V += V_in_N_study
-    final_total_train_R += R_in_N_study
-    final_total_train_N += N_in_N_study
-    final_total_train_Q += Q_in_N_study
-    statictis_type['Train']['N']['Total_S_in_N_study'] = S_in_N_study
-    statictis_type['Train']['N']['Total_V_in_N_study'] = V_in_N_study
-    statictis_type['Train']['N']['Total_R_in_N_study'] = R_in_N_study
-    statictis_type['Train']['N']['Total_N_in_N_study'] = N_in_N_study
-    statictis_type['Train']['N']['Total_Q_in_N_study'] = Q_in_N_study
-    statictis_type['Train']['N_study'] = list_N_studies_train
-    statictis_type['Train']['N_study_path'] = []
-    [statictis_type['Train']['N_study_path'].append(statictis_type['N'][i]['path']) for i in list_N_studies[:limit_train_N]]
-
-    # times = 0
-    # list_N_studies_eval = list_N_studies[limit_train_N:]
-    # times += 1
-    # print('N_eval: ', times)
-    # shuffle(list_N_studies)
-    # shuffle(list_N_studies)
-    S_in_N_study = 0
-    V_in_N_study = 0
-    R_in_N_study = 0
-    N_in_N_study = 0
-    Q_in_N_study = 0
-
-    for i in list_N_studies_eval:
-        S_in_N_study += statictis_type['N'][i]['total_S']
-        V_in_N_study += statictis_type['N'][i]['total_V']
-        R_in_N_study += statictis_type['N'][i]['total_R']
-        N_in_N_study += statictis_type['N'][i]['total_N']
-        Q_in_N_study += statictis_type['N'][i]['total_Q']
-
-    final_total_eval_S += S_in_N_study
-    final_total_eval_V += V_in_N_study
-    final_total_eval_R += R_in_N_study
-    final_total_eval_N += N_in_N_study
-    final_total_eval_Q += Q_in_N_study
-    statictis_type['Eval']['N']['Total_S_in_N_study'] = S_in_N_study
-    statictis_type['Eval']['N']['Total_V_in_N_study'] = V_in_N_study
-    statictis_type['Eval']['N']['Total_R_in_N_study'] = R_in_N_study
-    statictis_type['Eval']['N']['Total_N_in_N_study'] = N_in_N_study
-    statictis_type['Eval']['N']['Total_Q_in_N_study'] = Q_in_N_study
-    statictis_type['Eval']['N_study'] = list_N_studies_eval
-    statictis_type['Eval']['N_study_path'] = []
-    [statictis_type['Eval']['N_study_path'].append(statictis_type['N'][i]['path']) for i in list_N_studies[limit_train_N:]]
-
-    ### BRADY Region ###
-    times = 0
-    list_BRADY_studies = [i for i in statictis_type['BRADY'].keys() if not 'total_' in i]
-    # while True:
-    #     times += 1
-    print('BRADY_train: ', times)
-    shuffle(list_BRADY_studies)
-    shuffle(list_BRADY_studies)
-    S_in_BRADY_study = 0
-    V_in_BRADY_study = 0
-    R_in_BRADY_study = 0
-    N_in_BRADY_study = 0
-    Q_in_BRADY_study = 0
-
-    ## Check N study in Eval S or V or R study
-    cnt = 0
-    indx = 0
-    list_BRADY_studies_train = []
-    list_BRADY_studies_eval = []
-    while cnt < limit_train_BRADY and indx < len(list_BRADY_studies):
-        if list_BRADY_studies[indx] in statictis_type['Eval']['S_study'] \
-                or list_BRADY_studies[indx] in statictis_type['Eval']['V_study'] \
-                or list_BRADY_studies[indx] in statictis_type['Eval']['R_study']:
-            list_BRADY_studies_eval.append(list_BRADY_studies[indx])
-        else:
-            list_BRADY_studies_train.append(list_BRADY_studies[indx])
-            cnt += 1
-
-        indx += 1
-
-    while indx < len(list_BRADY_studies):
-        list_BRADY_studies_eval.append(list_BRADY_studies[indx])
-        indx += 1
-
-    for i in list_BRADY_studies_train:
-        S_in_BRADY_study += statictis_type['BRADY'][i]['total_S']
-        V_in_BRADY_study += statictis_type['BRADY'][i]['total_V']
-        R_in_BRADY_study += statictis_type['BRADY'][i]['total_R']
-        N_in_BRADY_study += statictis_type['BRADY'][i]['total_N']
-        Q_in_BRADY_study += statictis_type['BRADY'][i]['total_Q']
-
-    # if N_in_BRADY_study >= statictis_type['N']['total_N'] * ratio_train:
-    #     break
-
-    final_total_train_S += S_in_BRADY_study
-    final_total_train_V += V_in_BRADY_study
-    final_total_train_R += R_in_BRADY_study
-    final_total_train_N += N_in_BRADY_study
-    statictis_type['Train']['BRADY']['Total_S_in_BRADY_study'] = S_in_BRADY_study
-    statictis_type['Train']['BRADY']['Total_V_in_BRADY_study'] = V_in_BRADY_study
-    statictis_type['Train']['BRADY']['Total_R_in_BRADY_study'] = R_in_BRADY_study
-    statictis_type['Train']['BRADY']['Total_N_in_BRADY_study'] = N_in_BRADY_study
-    statictis_type['Train']['BRADY']['Total_Q_in_BRADY_study'] = Q_in_BRADY_study
-    statictis_type['Train']['BRADY_study'] = list_BRADY_studies_train
-    statictis_type['Train']['BRADY_study_path'] = []
-    [statictis_type['Train']['BRADY_study_path'].append(statictis_type['BRADY'][i]['path']) for i in list_BRADY_studies[:limit_train_BRADY]]
-
-    S_in_BRADY_study = 0
-    V_in_BRADY_study = 0
-    R_in_BRADY_study = 0
-    N_in_BRADY_study = 0
-    Q_in_BRADY_study = 0
-
-    for i in list_BRADY_studies_eval:
-        S_in_BRADY_study += statictis_type['BRADY'][i]['total_S']
-        V_in_BRADY_study += statictis_type['BRADY'][i]['total_V']
-        R_in_BRADY_study += statictis_type['BRADY'][i]['total_R']
-        N_in_BRADY_study += statictis_type['BRADY'][i]['total_N']
-        Q_in_BRADY_study += statictis_type['BRADY'][i]['total_Q']
-
-    final_total_eval_S += S_in_BRADY_study
-    final_total_eval_V += V_in_BRADY_study
-    final_total_eval_R += R_in_BRADY_study
-    final_total_eval_N += N_in_BRADY_study
-    statictis_type['Eval']['BRADY']['Total_S_in_BRADY_study'] = S_in_BRADY_study
-    statictis_type['Eval']['BRADY']['Total_V_in_BRADY_study'] = V_in_BRADY_study
-    statictis_type['Eval']['BRADY']['Total_R_in_BRADY_study'] = R_in_BRADY_study
-    statictis_type['Eval']['BRADY']['Total_N_in_BRADY_study'] = N_in_BRADY_study
-    statictis_type['Eval']['BRADY']['Total_Q_in_BRADY_study'] = Q_in_BRADY_study
-    statictis_type['Eval']['BRADY_study'] = list_BRADY_studies_eval
-    statictis_type['Eval']['BRADY_study_path'] = []
-    [statictis_type['Eval']['BRADY_study_path'].append(statictis_type['BRADY'][i]['path']) for i in list_BRADY_studies[limit_train_BRADY:]]
-
-    ### TACHY Region ###
-    times = 0
-    list_TACHY_studies = [i for i in statictis_type['TACHY'].keys() if not 'total_' in i]
-    # while True:
-    #     times += 1
-    print('TACHY_train: ', times)
-    shuffle(list_TACHY_studies)
-    shuffle(list_TACHY_studies)
-    S_in_TACHY_study = 0
-    V_in_TACHY_study = 0
-    R_in_TACHY_study = 0
-    N_in_TACHY_study = 0
-    Q_in_TACHY_study = 0
-
-    ## Check N study in Eval S or V or R study
-    cnt = 0
-    indx = 0
-    list_TACHY_studies_train = []
-    list_TACHY_studies_eval = []
-    while cnt < limit_train_TACHY and indx < len(list_TACHY_studies):
-        if list_TACHY_studies[indx] in statictis_type['Eval']['S_study'] \
-                or list_TACHY_studies[indx] in statictis_type['Eval']['V_study'] \
-                or list_TACHY_studies[indx] in statictis_type['Eval']['R_study']:
-            list_TACHY_studies_eval.append(list_TACHY_studies[indx])
-        else:
-            list_TACHY_studies_train.append(list_TACHY_studies[indx])
-            cnt += 1
-
-        indx += 1
-
-    while indx < len(list_TACHY_studies):
-        list_TACHY_studies_eval.append(list_TACHY_studies[indx])
-        indx += 1
-
-    for i in list_TACHY_studies_train:
-        S_in_TACHY_study += statictis_type['TACHY'][i]['total_S']
-        V_in_TACHY_study += statictis_type['TACHY'][i]['total_V']
-        R_in_TACHY_study += statictis_type['TACHY'][i]['total_R']
-        N_in_TACHY_study += statictis_type['TACHY'][i]['total_N']
-        Q_in_TACHY_study += statictis_type['TACHY'][i]['total_Q']
-
-    final_total_train_S += S_in_TACHY_study
-    final_total_train_V += V_in_TACHY_study
-    final_total_train_R += R_in_TACHY_study
-    final_total_train_N += N_in_TACHY_study
-    final_total_train_Q += Q_in_TACHY_study
-    statictis_type['Train']['TACHY']['Total_S_in_TACHY_study'] = S_in_TACHY_study
-    statictis_type['Train']['TACHY']['Total_V_in_TACHY_study'] = V_in_TACHY_study
-    statictis_type['Train']['TACHY']['Total_R_in_TACHY_study'] = R_in_TACHY_study
-    statictis_type['Train']['TACHY']['Total_N_in_TACHY_study'] = N_in_TACHY_study
-    statictis_type['Train']['TACHY']['Total_Q_in_TACHY_study'] = Q_in_TACHY_study
-    statictis_type['Train']['TACHY_study'] = list_TACHY_studies_train
-    statictis_type['Train']['TACHY_study_path'] = []
-    [statictis_type['Train']['TACHY_study_path'].append(statictis_type['TACHY'][i]['path']) for i in list_TACHY_studies[:limit_train_TACHY]]
-
-    S_in_TACHY_study = 0
-    V_in_TACHY_study = 0
-    R_in_TACHY_study = 0
-    N_in_TACHY_study = 0
-    Q_in_TACHY_study = 0
-
-    for i in list_TACHY_studies_eval:
-        S_in_TACHY_study += statictis_type['TACHY'][i]['total_S']
-        V_in_TACHY_study += statictis_type['TACHY'][i]['total_V']
-        R_in_TACHY_study += statictis_type['TACHY'][i]['total_R']
-        N_in_TACHY_study += statictis_type['TACHY'][i]['total_N']
-        Q_in_TACHY_study += statictis_type['TACHY'][i]['total_Q']
-
-    final_total_eval_S += S_in_TACHY_study
-    final_total_eval_V += V_in_TACHY_study
-    final_total_eval_R += R_in_TACHY_study
-    final_total_eval_N += N_in_TACHY_study
-    final_total_eval_Q += Q_in_TACHY_study
-    statictis_type['Eval']['TACHY']['Total_S_in_TACHY_study'] = S_in_TACHY_study
-    statictis_type['Eval']['TACHY']['Total_V_in_TACHY_study'] = V_in_TACHY_study
-    statictis_type['Eval']['TACHY']['Total_R_in_TACHY_study'] = R_in_TACHY_study
-    statictis_type['Eval']['TACHY']['Total_N_in_TACHY_study'] = N_in_TACHY_study
-    statictis_type['Eval']['TACHY']['Total_Q_in_TACHY_study'] = Q_in_TACHY_study
-    statictis_type['Eval']['TACHY_study'] = list_TACHY_studies_eval
-    statictis_type['Eval']['TACHY_study_path'] = []
-    [statictis_type['Eval']['TACHY_study_path'].append(statictis_type['TACHY'][i]['path']) for i in list_TACHY_studies[limit_train_TACHY:]]
-
-    ### NOISE Region ###
-    times = 0
-    list_NOISE_studies = [i for i in statictis_type['Q'].keys() if not 'total_' in i]
-    # while True:
-    #     times += 1
-    print('NOISE_train: ', times)
-    shuffle(list_NOISE_studies)
-    shuffle(list_NOISE_studies)
-    S_in_Q_study = 0
-    V_in_Q_study = 0
-    R_in_Q_study = 0
-    N_in_Q_study = 0
-    Q_in_Q_study = 0
-
-    ## Check N study in Eval S or V or R study
-    cnt = 0
-    indx = 0
-    list_NOISE_studies_train = []
-    list_NOISE_studies_eval = []
-    while cnt < limit_train_NOISE and indx < len(list_NOISE_studies):
-        if list_NOISE_studies[indx] in statictis_type['Eval']['S_study'] \
-                or list_NOISE_studies[indx] in statictis_type['Eval']['V_study'] \
-                or list_NOISE_studies[indx] in statictis_type['Eval']['R_study']:
-            list_NOISE_studies_eval.append(list_NOISE_studies[indx])
-        else:
-            list_NOISE_studies_train.append(list_NOISE_studies[indx])
-            cnt += 1
-
-        indx += 1
-
-    while indx < len(list_NOISE_studies):
-        list_NOISE_studies_eval.append(list_NOISE_studies[indx])
-        indx += 1
-
-    for i in list_NOISE_studies_train:
-        S_in_Q_study += statictis_type['Q'][i]['total_S']
-        V_in_Q_study += statictis_type['Q'][i]['total_V']
-        R_in_Q_study += statictis_type['Q'][i]['total_R']
-        N_in_Q_study += statictis_type['Q'][i]['total_N']
-        Q_in_Q_study += statictis_type['Q'][i]['total_Q']
-
-    # if N_in_Q_study >= statictis_type['N']['total_N'] * ratio_train:
-    #     break
-
-    final_total_train_S += S_in_Q_study
-    final_total_train_V += V_in_Q_study
-    final_total_train_R += R_in_Q_study
-    final_total_train_N += N_in_Q_study
-    final_total_train_Q += Q_in_Q_study
-    statictis_type['Train']['Q']['Total_S_in_Q_study'] = S_in_Q_study
-    statictis_type['Train']['Q']['Total_V_in_Q_study'] = V_in_Q_study
-    statictis_type['Train']['Q']['Total_R_in_Q_study'] = R_in_Q_study
-    statictis_type['Train']['Q']['Total_N_in_Q_study'] = N_in_Q_study
-    statictis_type['Train']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
-    statictis_type['Train']['Q_study'] = list_NOISE_studies_train
-    statictis_type['Train']['Q_study_path'] = []
-    [statictis_type['Train']['Q_study_path'].append(statictis_type['Q'][i]['path']) for i in list_NOISE_studies[:limit_train_NOISE]]
-
-    # times = 0
-    # list_NOISE_studies = list_NOISE_studies[limit_train_NOISE:]
-    # times += 1
-    # print('NOISE_eval: ', times)
-    # shuffle(list_N_studies)
-    # shuffle(list_N_studies)
-    S_in_Q_study = 0
-    V_in_Q_study = 0
-    R_in_Q_study = 0
-    N_in_Q_study = 0
-    Q_in_Q_study = 0
-
-    for i in list_NOISE_studies_eval:
-        S_in_Q_study += statictis_type['Q'][i]['total_S']
-        V_in_Q_study += statictis_type['Q'][i]['total_V']
-        R_in_Q_study += statictis_type['Q'][i]['total_R']
-        N_in_Q_study += statictis_type['Q'][i]['total_N']
-        Q_in_Q_study += statictis_type['Q'][i]['total_Q']
-
-    final_total_eval_S += S_in_Q_study
-    final_total_eval_V += V_in_Q_study
-    final_total_eval_R += R_in_Q_study
-    final_total_eval_N += N_in_Q_study
-    final_total_eval_Q += Q_in_Q_study
-    statictis_type['Eval']['Q']['Total_S_in_Q_study'] = S_in_Q_study
-    statictis_type['Eval']['Q']['Total_V_in_Q_study'] = V_in_Q_study
-    statictis_type['Eval']['Q']['Total_R_in_Q_study'] = R_in_Q_study
-    statictis_type['Eval']['Q']['Total_N_in_Q_study'] = N_in_Q_study
-    statictis_type['Eval']['Q']['Total_Q_in_Q_study'] = Q_in_Q_study
-    statictis_type['Eval']['Q_study'] = list_NOISE_studies_eval
-    statictis_type['Eval']['Q_study_path'] = []
-    [statictis_type['Eval']['Q_study_path'].append(statictis_type['Q'][i]['path']) for i in list_NOISE_studies[limit_train_NOISE:]]
-
-    ### AFIB Region ###
-    times = 0
-    list_AFIB_studies = [i for i in statictis_type['AFIB'].keys() if not 'total_' in i]
-    # while True:
-    #     times += 1
-    print('AFIB_train: ', times)
-    shuffle(list_AFIB_studies)
-    shuffle(list_AFIB_studies)
-    S_in_AFIB_study = 0
-    V_in_AFIB_study = 0
-    R_in_AFIB_study = 0
-    N_in_AFIB_study = 0
-    Q_in_AFIB_study = 0
-
-    ## Check N study in Eval S or V or R study
-    cnt = 0
-    indx = 0
-    list_AFIB_studies_train = []
-    list_AFIB_studies_eval = []
-    while cnt < limit_train_AFIB and indx < len(list_AFIB_studies):
-        if list_AFIB_studies[indx] in statictis_type['Eval']['S_study'] \
-                or list_AFIB_studies[indx] in statictis_type['Eval']['V_study'] \
-                or list_AFIB_studies[indx] in statictis_type['Eval']['R_study']:
-            list_AFIB_studies_eval.append(list_AFIB_studies[indx])
-        else:
-            list_AFIB_studies_train.append(list_AFIB_studies[indx])
-            cnt += 1
-
-        indx += 1
-
-    while indx < len(list_AFIB_studies):
-        list_AFIB_studies_eval.append(list_AFIB_studies[indx])
-        indx += 1
-
-    for i in list_AFIB_studies_train:
-        S_in_AFIB_study += statictis_type['AFIB'][i]['total_S']
-        V_in_AFIB_study += statictis_type['AFIB'][i]['total_V']
-        R_in_AFIB_study += statictis_type['AFIB'][i]['total_R']
-        N_in_AFIB_study += statictis_type['AFIB'][i]['total_N']
-        Q_in_AFIB_study += statictis_type['AFIB'][i]['total_Q']
-
-    # if N_in_AFIB_study >= statictis_type['N']['total_N'] * ratio_train:
-    #     break
-
-    final_total_train_S += S_in_AFIB_study
-    final_total_train_V += V_in_AFIB_study
-    final_total_train_R += R_in_AFIB_study
-    final_total_train_N += N_in_AFIB_study
-    final_total_train_Q += Q_in_AFIB_study
-    statictis_type['Train']['AFIB']['Total_S_in_AFIB_study'] = S_in_AFIB_study
-    statictis_type['Train']['AFIB']['Total_V_in_AFIB_study'] = V_in_AFIB_study
-    statictis_type['Train']['AFIB']['Total_R_in_AFIB_study'] = R_in_AFIB_study
-    statictis_type['Train']['AFIB']['Total_N_in_AFIB_study'] = N_in_AFIB_study
-    statictis_type['Train']['AFIB']['Total_Q_in_AFIB_study'] = Q_in_AFIB_study
-    statictis_type['Train']['AFIB_study'] = list_AFIB_studies_train
-    statictis_type['Train']['AFIB_study_path'] = []
-    [statictis_type['Train']['AFIB_study_path'].append(statictis_type['AFIB'][i]['path']) for i in list_AFIB_studies[:limit_train_AFIB]]
-
-    # times = 0
-    # list_AFIB_studies = list_AFIB_studies[limit_train_AFIB:]
-    # times += 1
-    # print('AFIB_eval: ', times)
-    # shuffle(list_N_studies)
-    # shuffle(list_N_studies)
-    S_in_AFIB_study = 0
-    V_in_AFIB_study = 0
-    R_in_AFIB_study = 0
-    N_in_AFIB_study = 0
-    Q_in_AFIB_study = 0
-
-    for i in list_AFIB_studies_eval:
-        S_in_AFIB_study += statictis_type['AFIB'][i]['total_S']
-        V_in_AFIB_study += statictis_type['AFIB'][i]['total_V']
-        R_in_AFIB_study += statictis_type['AFIB'][i]['total_R']
-        N_in_AFIB_study += statictis_type['AFIB'][i]['total_N']
-        Q_in_AFIB_study += statictis_type['AFIB'][i]['total_Q']
-
-    final_total_eval_S += S_in_AFIB_study
-    final_total_eval_V += V_in_AFIB_study
-    final_total_eval_R += R_in_AFIB_study
-    final_total_eval_N += N_in_AFIB_study
-    final_total_eval_Q += Q_in_AFIB_study
-    statictis_type['Eval']['AFIB']['Total_S_in_AFIB_study'] = S_in_AFIB_study
-    statictis_type['Eval']['AFIB']['Total_V_in_AFIB_study'] = V_in_AFIB_study
-    statictis_type['Eval']['AFIB']['Total_R_in_AFIB_study'] = R_in_AFIB_study
-    statictis_type['Eval']['AFIB']['Total_N_in_AFIB_study'] = N_in_AFIB_study
-    statictis_type['Eval']['AFIB']['Total_Q_in_AFIB_study'] = Q_in_AFIB_study
-    statictis_type['Eval']['AFIB_study'] = list_AFIB_studies_eval
-    statictis_type['Eval']['AFIB_study_path'] = []
-    [statictis_type['Eval']['AFIB_study_path'].append(statictis_type['AFIB'][i]['path']) for i in list_AFIB_studies[limit_train_AFIB:]]
-
-    statictis_type['Total_train_N'] = final_total_train_N
-    statictis_type['Total_train_V'] = final_total_train_V
-    statictis_type['Total_train_R'] = final_total_train_R
-    statictis_type['Total_train_S'] = final_total_train_S
-    statictis_type['Total_train_Q'] = final_total_train_Q
-    # statictis_type['Total_train_AFIB'] = final_total_train_Q
-
-    statictis_type['Total_eval_N'] = final_total_eval_N
-    statictis_type['Total_eval_V'] = final_total_eval_V
-    statictis_type['Total_eval_R'] = final_total_eval_R
-    statictis_type['Total_eval_S'] = final_total_eval_S
-    statictis_type['Total_eval_Q'] = final_total_eval_Q
-
-    statictis_type['ratio_train_eval_test'] = [8, 2]
-
-    # print('Train: N {}, V {}, R {}, S {}, Q {}\nEval: N {}, V {}, R {}, S {}, Q {}'.format(
-    #     statictis_type['Total_train_N'],
-    #     statictis_type['Total_train_V'],
-    #     statictis_type['Total_train_R'],
-    #     statictis_type['Total_train_S'],
-    #     statictis_type['Total_train_Q'],
-    #     statictis_type['Total_eval_N'],
-    #     statictis_type['Total_eval_V'],
-    #     statictis_type['Total_eval_R'],
-    #     statictis_type['Total_eval_S'],
-    #     statictis_type['Total_eval_Q'],
-    #     ))
-
-    fp = open(output_path + 'log_data_noise.json', 'w')
+        # break
+    print(f'{output_path}/log_data4tiny.json')
+    fp = open(f'{output_path}/log_data4tiny.json', 'w')
     fp.write(json.dumps(statictis_type, indent=4))
     fp.close()
 
@@ -930,6 +221,6 @@ def statistic_study(
 
 
 if __name__ == '__main__':
-    split_data_2()
+    split_data_2(output_path='/mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/')
     # add_study()
     # statistic_study()

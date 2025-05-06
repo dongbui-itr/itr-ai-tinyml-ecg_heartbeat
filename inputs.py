@@ -409,7 +409,7 @@ def initiate_process_parameters(res_db_dict, ranges):
 
 
 def get_annotations(label_path, sig_len, ext='atr'):
-    qa_channel = label_path[-1]
+    # qa_channel = label_path[-1]
     beats = []
     symbols = []
     sample_artifact = []
@@ -421,6 +421,14 @@ def get_annotations(label_path, sig_len, ext='atr'):
         check = (beats >= 0) == (beats < sig_len)
         beats = beats[check]
         symbols = symbols[check]
+        header = wf.rdheader(label_path)
+        qa_channel = 1
+        for i_cmt in header.comments:
+            if "# channel" in i_cmt:
+                try:
+                    qa_channel = int(i_cmt.split(":"))
+                except:
+                    qa_channel = 0
 
     except:
         print(">>>>>>>>>>> ERR in label file: {} <<<<<<<<<<<<<<<<<<,".format(label_path))
@@ -434,27 +442,18 @@ def get_studyid(label_path, res=None, ext='atr'):
     hasComplexBeat = False
 
     if res is None:
-        res = {"N": 0,
-               "A": 0,
-               "V": 0,
-               "R": 0,
-               "Q": 0,
-               }
+        res = dict()
+        for type in CLASS_TYPES:
+            res[type] = 0
 
     try:
         ann = wf.rdann(label_path, ext)
-
         symbols = np.asarray(ann.symbol)
-        # symbols[symbols=='S'] ='A'
-        # symbols = np.asarray([INV_SYMBOL[s] for s in symbols])
         for key in res:
-            if key == 'ARTIFACT':
-                res[key] += np.count_nonzero(symbols == 'Q')
-            else:
-                res[key] += np.count_nonzero(symbols == key)
+            res[key] += np.count_nonzero(symbols == key)
 
-        studyFid = label_path.split('export_')[-1].split('/')[1]
-        eventFid = label_path.split('export_')[-1].split('/')[2]
+        studyFid = label_path.split('/')[-2]
+        eventFid = label_path.split('/')[-1]
     except:
         print(">>>>>>>>>>> ERR in label file: {} <<<<<<<<<<<<<<<<<<,".format(label_path))
 
@@ -576,7 +575,7 @@ def _process_sample(use_gpu_index,
                     elif symbol_true[i] in ['S', 'V']:
                         __symbol_true.append('V')
                         __beat_true.append(beat_true[i])
-                    elif symbol_true[i] in ['Q', 'M']:
+                    elif symbol_true[i] in ['|', 'M']:
                         __symbol_true.append('ARTIFACT')
                         __beat_true.append(beat_true[i])
 
@@ -584,11 +583,13 @@ def _process_sample(use_gpu_index,
                 beat_true = np.asarray(__beat_true)
 
             if debug: #and flag_debug and 'export_S' in file_name:
+                plt.title(f"{file_name}\n{event_channel}")
+                print(f"{symbol_true} {beat_true}")
                 plt.plot(buf_ecg)
                 plt.plot(beat_true, buf_ecg[beat_true], 'r*')
                 [plt.annotate(symbol_true[i], (beat_true[i], max(buf_ecg))) for i in range(len(symbol_true))]
                 plt.show()
-                plt.close()
+                # plt.close()
 
             data_len = len(buf_ecg)
             symbol_true = [ind[s] for s in symbol_true]
@@ -1976,9 +1977,14 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
         shutil.rmtree(data_model_dir)
         os.makedirs(data_model_dir)
 
-    from split_train_eval_noise import split_data_2
-    split_data_2(data_dir=data_dir,
-                 output_path=data_model_dir, k=0)
+    from Extract_data_from_strip_2 import random_studies
+    random_studies(data_path="/mnt/4T_DATA/LLM/include-strip2/",
+                   output_data_path=data_dir,
+                   output_info_path=data_model_dir)
+
+    # from split_train_eval_noise import split_data_2
+    # split_data_2(data_dir=data_dir,
+    #              output_path=data_model_dir, k=0)
 
     sampling_rate = int(data_info.split('_')[0])
     feature_len = int(float(data_info.split('_')[1]) * sampling_rate)
@@ -2048,60 +2054,45 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
     train_beat_type = dict()
 
     #open log_data.json
-    with open(data_model_dir + 'log_data_noise.json', 'r') as fp:
+    # if not os.path.exists(data_model_dir + 'log_data4tiny.json'):
+    #     os.system(f"cp /mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/log_data4tiny.json {data_model_dir}")
+
+    with open(data_model_dir + 'log_info_data.json', 'r') as fp:
         list_data = json.load(fp)
 
+    list_study = glob(data_dir + "/*/*")
+    dict_study = dict()
+    for i_study in list_study:
+        tmp = i_study.split("/")
+        dict_study[tmp[-1]] = i_study
+
+    all_study_train = list_data["train"]["studyID"]
     all_file_train = []
-    res = {}
-    keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
-
-    for label in keys_class : #datastore_dict["beat_class"].keys():
-        if not 'NOTABEAT' in label:
-            _label = label
-            if label == 'ARTIFACT':
-                label = 'Q'
-
-            for studyID in list_data['Train'][f'{label}_study_path']:
-                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
-                if len(list_files) == 0:
-                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
-                if len(list_files) > 0:
-                    all_file_train.extend(list_files)
-
-            all_train_beat_type[_label] = 0
-            train_beat_type[_label] = 0
-            res[_label] = 0
+    for study in all_study_train:
+        try:
+            files = [i[:-4] for i in glob(dict_study[study] + '/*.hea')]
+            all_file_train.extend(files)
+        except:
+            # print(dict_study[study])
+            pass
 
     shuffle(all_file_train)
     for f in all_file_train:
-        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, res.copy())
+        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, None)
         if studyFid not in ds_train_study_info.keys():
             ds_train_study_info[studyFid] = dict()
             ds_train_study_info[studyFid]["hasComplexBeat"] = []
             ds_train_study_info[studyFid]["eventFid"] = []
             ds_train_study_info[studyFid]["file"] = []
             _type = f.split('export_')[-1].split('/')[0]
-
-            if _type in ['RVE', 'RSE']:
-                _type = 'R'
-            elif _type in ['ARTIFACT', 'NOISE']:
-                _type = 'Q'
-
-            for label in ['N', 'R', 'V', 'S', 'Q'] : #datastore_dict["beat_class"].keys():
-                try:
-                    ds_train_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
-                except:
-                    ds_train_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
+            for label in CLASS_TYPES: # ['N', 'R', 'V', 'S', '|'] :
+                ds_train_study_info[studyFid][label] = num_beat_type[label]
 
         ds_train_study_info[studyFid]["eventFid"].append(eventFid)
         ds_train_study_info[studyFid]["file"].append(f)
         ds_train_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
-        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-            if label in num_beat_type:
-                ds_train_study_info[studyFid][label] += num_beat_type[label]
-                all_train_beat_type[label] += num_beat_type[label]
-            else:
-                ds_train_study_info[studyFid][label] = 0
+        for label in CLASS_TYPES:  # ['N', 'R', 'V', 'S', '|'] :
+            ds_train_study_info[studyFid][label] += num_beat_type[label]
 
     list_study_id = list(ds_train_study_info.keys())
     list_get = []
@@ -2110,8 +2101,10 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
         if studyFid in list_get:
             continue
 
-        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-            if not 'NOTABEAT' in label:
+        for label in CLASS_TYPES: #['N', 'R', 'V', 'S', '|']: #datastore_dict["beat_class"].keys():
+            if label not in train_beat_type.keys():
+                train_beat_type[label] = ds_train_study_info[studyFid][label]
+            else:
                 train_beat_type[label] += ds_train_study_info[studyFid][label]
 
         ds_file["train"]["studyFid"].append(studyFid)
@@ -2124,55 +2117,33 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
     ds_eval_study_info = dict()
     eval_beat_type = dict()
     all_eval_beat_type = dict()
+    all_study_eval = list_data["eval"]["studyID"]
     all_file_eval = []
-    keys_class = [i for i in list(list_data['Train'].keys()) if not 'study' in i]
-    for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-        if not 'NOTABEAT' in label:
-            _label = label
-            if label == 'ARTIFACT':
-                label = 'Q'
-
-            for studyID in list_data['Eval'][f'{label}_study_path']:
-                list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*.{}'.format(EXT_BEAT))]
-                if len(list_files) == 0:
-                    list_files = [i_file.replace(f'.{EXT_BEAT}', '') for i_file in glob(studyID + '/*/*.{}'.format(EXT_BEAT))]
-                if len(list_files) > 0:
-                    all_file_eval.extend(list_files)
-
-        all_eval_beat_type[_label] = 0
-        eval_beat_type[_label] = 0
-        res[_label] = 0
+    for study in all_study_eval:
+        try:
+            files = [i[:-4] for i in glob(dict_study[study] + '/*.hea')]
+            all_file_eval.extend(files)
+        except:
+            # print(dict_study[study])
+            pass
 
     shuffle(all_file_eval)
     for f in all_file_eval:
-        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, res.copy())
+        studyFid, eventFid, hasComplexBeat, num_beat_type = get_studyid(f, None)
         if studyFid not in ds_eval_study_info.keys():
             ds_eval_study_info[studyFid] = dict()
             ds_eval_study_info[studyFid]["hasComplexBeat"] = []
             ds_eval_study_info[studyFid]["eventFid"] = []
             ds_eval_study_info[studyFid]["file"] = []
             _type = f.split('export_')[-1].split('/')[0]
-
-            if _type in ['RVE', 'RSE']:
-                _type = 'R'
-            elif _type in ['ARTIFACT', 'NOISE']:
-                _type = 'Q'
-
-            for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-                try:
-                    ds_eval_study_info[studyFid][label] = list_data[_type][eventFid]['total_' + label]
-                except:
-                    ds_eval_study_info[studyFid][label] = list_data[_type][studyFid]['total_' + label]
+            for label in CLASS_TYPES:
+                ds_eval_study_info[studyFid][label] = num_beat_type[label]
 
         ds_eval_study_info[studyFid]["eventFid"].append(eventFid)
         ds_eval_study_info[studyFid]["file"].append(f)
         ds_eval_study_info[studyFid]["hasComplexBeat"].append(int(hasComplexBeat))
-        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-            if label in num_beat_type:
-                ds_eval_study_info[studyFid][label] += num_beat_type[label]
-                all_eval_beat_type[label] += num_beat_type[label]
-            else:
-                ds_eval_study_info[studyFid][label] = 0
+        for label in CLASS_TYPES:
+            ds_eval_study_info[studyFid][label] += num_beat_type[label]
 
     list_study_id = list(ds_eval_study_info.keys())
     list_get = []
@@ -2181,9 +2152,11 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
         if studyFid in list_get:
             continue
 
-        for label in ['N', 'R', 'V', 'S', 'Q']: #datastore_dict["beat_class"].keys():
-            if not 'NOTABEAT' in label:
-                eval_beat_type[label] += ds_eval_study_info[studyFid][_label]
+        for label in CLASS_TYPES:
+            if label not in eval_beat_type.keys():
+                eval_beat_type[label] = ds_eval_study_info[studyFid][label]
+            else:
+                eval_beat_type[label] += ds_eval_study_info[studyFid][label]
 
         ds_file["eval"]["studyFid"].append(studyFid)
         ds_file["eval"]["eventFid"] += ds_eval_study_info[studyFid]["eventFid"]
