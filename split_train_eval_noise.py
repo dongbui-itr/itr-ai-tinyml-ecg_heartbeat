@@ -10,9 +10,10 @@ from random import shuffle
 
 from glob import glob
 from collections import Counter
+from all_config import CLASS_TYPES
 
 DATAPATH = '/mnt/4T_DATA/DATA_4TINYML/strip2/'
-BEAT_TYPES = ['N', 'S', 'V', 'Q', 'R']
+# BEAT_TYPES = ['N', 'S', 'V', 'Q', 'R']
 
 def split_data_2(data_dir=DATAPATH,
                  output_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', ratio_train = 8 / 10, k=0):
@@ -26,12 +27,12 @@ def split_data_2(data_dir=DATAPATH,
         statictis_type["eval"] = dict()
         statictis_type["eval"]["studyID"] = []
 
-        for type in BEAT_TYPES:
+        for type in CLASS_TYPES:
             statictis_type['total_{}'.format(type)] = 0
             statictis_type["train"]['total_{}'.format(type)] = 0
             statictis_type["eval"]['total_{}'.format(type)] = 0
 
-        events = os.listdir(DATAPATH)
+        events = os.listdir(data_dir)
         print(events)
         for event in events:
             if '.json' in event or '.csv' in event:
@@ -48,7 +49,7 @@ def split_data_2(data_dir=DATAPATH,
                 studies_path = os.listdir(f'{data_dir}/{event}/')
                 event_statictis_type[event] = {}
                 print('Number of {} files: {}'.format(event, len(studies_path)))
-                for type in BEAT_TYPES:
+                for type in CLASS_TYPES:
                     event_statictis_type[event]['total_{}'.format(type)] = 0
                     event_statictis_type["train"]['total_{}'.format(type)] = 0
                     event_statictis_type["eval"]['total_{}'.format(type)] = 0
@@ -71,7 +72,7 @@ def split_data_2(data_dir=DATAPATH,
                     else:
                         flag_train = False
 
-                    for type in BEAT_TYPES:
+                    for type in CLASS_TYPES:
                         event_statictis_type[event][study_id]['total_{}'.format(type)] = 0
                         event_statictis_type[event][study_id]['path'] = study_id
 
@@ -89,21 +90,21 @@ def split_data_2(data_dir=DATAPATH,
 
                         for key in symbol_statictis.keys():
 
-                            if key == '|':
-                                _key = 'Q'
-                            else:
-                                _key = copy.deepcopy(key)
-                            if _key not in BEAT_TYPES:
+                            # if key == '|':
+                            #     _key = 'Q'
+                            # else:
+                            #     _key = copy.deepcopy(key)
+                            if key not in CLASS_TYPES:
                                 print(f'key={key}')
                                 continue
 
                             try:
-                                event_statictis_type[event][study_id]['total_{}'.format(_key)] += symbol_statictis[key]
-                                event_statictis_type[event]['total_{}'.format(_key)] += symbol_statictis[key]
+                                event_statictis_type[event][study_id]['total_{}'.format(key)] += symbol_statictis[key]
+                                event_statictis_type[event]['total_{}'.format(key)] += symbol_statictis[key]
                                 if flag_train:
-                                    event_statictis_type["train"]['total_{}'.format(_key)] += symbol_statictis[key]
+                                    event_statictis_type["train"]['total_{}'.format(key)] += symbol_statictis[key]
                                 else:
-                                    event_statictis_type["eval"]['total_{}'.format(_key)] += symbol_statictis[key]
+                                    event_statictis_type["eval"]['total_{}'.format(key)] += symbol_statictis[key]
 
                             except:
                                 a=10
@@ -116,7 +117,7 @@ def split_data_2(data_dir=DATAPATH,
                         (event_statictis_type[event]['total_S'] < 20 and event_statictis_type[event]['total_V'] < 20) or k > 10):
                     break
 
-            for type in BEAT_TYPES:
+            for type in CLASS_TYPES:
                 statictis_type['total_{}'.format(type)] += event_statictis_type['train']['total_{}'.format(type)]
                 statictis_type['total_{}'.format(type)] += event_statictis_type['eval']['total_{}'.format(type)]
                 statictis_type["train"]['total_{}'.format(type)] += event_statictis_type['train']['total_{}'.format(type)]
@@ -128,7 +129,7 @@ def split_data_2(data_dir=DATAPATH,
             statictis_type["eval"]["studyID"].extend(event_statictis_type['eval']['studyID'])
 
         flag_stop = True
-        for type in BEAT_TYPES:
+        for type in CLASS_TYPES:
             if not type in ['S', 'V']:
                 continue
             else:
@@ -139,8 +140,8 @@ def split_data_2(data_dir=DATAPATH,
 
 
         # break
-    print(f'{output_path}/log_data4tiny.json')
-    fp = open(f'{output_path}/log_data4tiny.json', 'w')
+    print(f'{output_path}/log_random_data.json')
+    fp = open(f'{output_path}/log_random_data.json', 'w')
     fp.write(json.dumps(statictis_type, indent=4))
     fp.close()
 
@@ -221,6 +222,7 @@ def statistic_study(
 
 
 if __name__ == '__main__':
-    split_data_2(output_path='/mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/')
+    split_data_2(data_dir='/mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/',
+                 output_path='/mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/')
     # add_study()
     # statistic_study()

@@ -9,13 +9,19 @@ from collections import Counter
 from utils.reprocessing import butter_bandpass_filter
 
 DATA_PATH = "/mnt/4T_DATA/LLM/include-strip2/"
-OUTPUT_PATH = "/mnt/4T_DATA/DATA_4TINYML/strip2"
+OUTPUT_PATH = "/mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/"
 DEBUG = False
 LEN = 5 #sec
 
-def random_studies(data_path=DATA_PATH,
+def extract_data(data_path=DATA_PATH,
                    output_data_path=OUTPUT_PATH,
                    output_info_path=OUTPUT_PATH):
+    if not os.path.exists(output_data_path):
+        os.mkdir(output_data_path)
+
+    if not os.path.exists(output_info_path):
+        os.mkdir(output_info_path)
+
     folders = os.listdir(data_path)
     fp_log = open(f"{output_data_path}/log_err.csv", "w")
     sta_beat = dict()
@@ -113,15 +119,16 @@ def random_studies(data_path=DATA_PATH,
                         plt.show()
 
 
-                    OUTPUT_DIR = f"{OUTPUT_PATH}/{eventType}/{tmp[0]}/{tmp[1]}"
-                    OUTPUT_DIR = OUTPUT_DIR.replace(" ", "")
-                    if not os.path.exists(OUTPUT_DIR):
-                        os.makedirs(OUTPUT_DIR)
+                    output_dir = f"{output_data_path}/{eventType}/{tmp[0]}/{tmp[1]}"
+                    output_dir = output_dir.replace(" ", "")
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
 
                     sta_segment = dict(Counter(symbols_segment))
                     try:
-                        sta_beat[eventType]= dict()
-                        sta_beat[eventType]["studies"] = []
+                        if  not eventType in list(sta_beat.keys()):
+                            sta_beat[eventType]= dict()
+                            sta_beat[eventType]["studies"] = []
                     except:
                         pass
 
@@ -150,7 +157,7 @@ def random_studies(data_path=DATA_PATH,
                                                     extension='atr',
                                                     fs=header.fs,
                                                     )
-                        annotations.wrann(write_dir=output_data_path, write_fs=True)
+                        annotations.wrann(write_dir=output_dir, write_fs=True)
                         wf.wrsamp(record_name=f"{tmp[-1]}_{cnt_segment}",
                                   p_signal=signal_segment,
                                   fs=header.fs,
@@ -163,7 +170,7 @@ def random_studies(data_path=DATA_PATH,
                                             f"eventType: {eventType}",
                                             f"channel: {channel}",
                                             ],
-                                  write_dir=output_data_path
+                                  write_dir=output_dir
                                   )
 
                     if start + LEN * header.fs >= stopSample:
@@ -187,4 +194,4 @@ def random_studies(data_path=DATA_PATH,
 
 
 if __name__ == '__main__':
-    random_studies()
+    extract_data()

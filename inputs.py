@@ -1977,10 +1977,9 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
         shutil.rmtree(data_model_dir)
         os.makedirs(data_model_dir)
 
-    from Extract_data_from_strip_2 import random_studies
-    random_studies(data_path="/mnt/4T_DATA/LLM/include-strip2/",
-                   output_data_path=data_dir,
-                   output_info_path=data_model_dir)
+    from split_train_eval_noise import split_data_2
+    split_data_2(data_dir=data_dir,
+                 output_path=data_model_dir)
 
     # from split_train_eval_noise import split_data_2
     # split_data_2(data_dir=data_dir,
@@ -1999,7 +1998,6 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
         step += 1
 
     # assert (int(tmp) == num_block), print('feature_len and num_block do not match')
-
     ebwr = bool(int(data_info.split('_')[3]))
     enorm = bool(int(data_info.split('_')[4]))
     overlap = int(data_info.split('_')[5])
@@ -2057,7 +2055,7 @@ def create_tfrecord_from_portal_event_3(data_model_dir,
     # if not os.path.exists(data_model_dir + 'log_data4tiny.json'):
     #     os.system(f"cp /mnt/4T_DATA/DATA_4TINYML/tiny_hb3_data_strip_2/log_data4tiny.json {data_model_dir}")
 
-    with open(data_model_dir + 'log_info_data.json', 'r') as fp:
+    with open(data_model_dir + 'log_random_data.json', 'r') as fp:
         list_data = json.load(fp)
 
     list_study = glob(data_dir + "/*/*")
