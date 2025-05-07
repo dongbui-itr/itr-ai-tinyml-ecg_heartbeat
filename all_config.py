@@ -60,9 +60,9 @@ CLASS_TYPES = ['N', 'V', 'S', 'R', '|']
 
 CLASS_WEIGHTS = {
         0: 1,
-        1: 4,
-        2: 4,
-        3: 2,
+        1: 3,
+        # 2: 6,
+        # 3: 3,
     }
 
 CLASS_WEIGHTS_RETRAIN = {

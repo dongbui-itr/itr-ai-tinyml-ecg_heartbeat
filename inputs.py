@@ -573,11 +573,12 @@ def _process_sample(use_gpu_index,
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
                     elif symbol_true[i] in ['S', 'V']:
-                        __symbol_true.append('V')
+                        # __symbol_true.append('V')
+                        __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
-                    elif symbol_true[i] in ['|', 'M']:
-                        __symbol_true.append('ARTIFACT')
-                        __beat_true.append(beat_true[i])
+                    # elif symbol_true[i] in ['|', 'M']:
+                    #     __symbol_true.append('ARTIFACT')
+                    #     __beat_true.append(beat_true[i])
 
                 symbol_true = np.asarray(__symbol_true)
                 beat_true = np.asarray(__beat_true)

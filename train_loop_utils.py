@@ -19,7 +19,7 @@ import numpy as np
 import model_2D as beat_model
 from utils.logging import TextLogging
 from all_config import CLASS_WEIGHTS, CLASS_WEIGHTS_RETRAIN
-from sklearn.metrics import confusion_matrix, classification_report, f1_score
+from sklearn.metrics import confusion_matrix, classification_report, f1_score, accuracy_score, precision_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import keras
@@ -128,6 +128,20 @@ def train_beat_classification(use_gpu_index,
         if not os.path.exists(i):
             os.makedirs(i)
 
+    best_f1_class_checkpoint_dir = dict()
+    best_f1_class_value = dict()
+    best_acc_class_checkpoint_dir = dict()
+    best_acc_class_value = dict()
+    for i in beat_class.keys():
+        best_f1_class_checkpoint_dir[i] = f"{model_dir}/best_f1_{i}"
+        best_f1_class_value[i] = 100
+        best_acc_class_checkpoint_dir[i] = f"{model_dir}/best_accuracy_{i}"
+        best_acc_class_value[i] = 0
+        if not os.path.exists(f"{model_dir}/best_f1_{i}"):
+            os.makedirs(f"{model_dir}/best_f1_{i}")
+        if not os.path.exists(f"{model_dir}/best_accuracy_{i}"):
+            os.makedirs(f"{model_dir}/best_accuracy_{i}")
+
     bk_metric = None
     if os.path.exists('{}/{}_bk_metric.txt'.format(log_dir, model_name)):
         with open('{}/{}_bk_metric.txt'.format(log_dir, model_name), 'r') as json_file:
@@ -229,6 +243,10 @@ def train_beat_classification(use_gpu_index,
             self._setup_class_names()
             self.best_f1_checkpoint_dir = best_loss_checkpoint_dir
             self.best_f1_avg_checkpoint_dir = best_f1_checkpoint_dir
+            self.best_f1_class_checkpoint_dir = best_f1_class_checkpoint_dir
+            self.best_f1_class_value = best_f1_class_value
+            self.best_acc_class_checkpoint_dir = best_acc_class_checkpoint_dir
+            self.best_acc_class_value = best_acc_class_value
 
             if self.log_dir and self.plot_every > 0 and self.file_writer_cm is None:
                 cm_log_path = os.path.join(self.log_dir, 'cm')
@@ -342,18 +360,21 @@ def train_beat_classification(use_gpu_index,
             labels_range = list(range(self.num_classes))
             try:
                 cm = confusion_matrix(y_true, y_pred, labels=labels_range)
+                accuracy_score_class = precision_score(y_true, y_pred, labels=labels_range, average=None, zero_division=0)
                 f1_scores_per_class = f1_score(y_true, y_pred, labels=labels_range, average=None, zero_division=0)
                 f1_macro = f1_score(y_true, y_pred, labels=labels_range, average='macro', zero_division=0)
                 f1_weighted = f1_score(y_true, y_pred, labels=labels_range, average='weighted', zero_division=0)
             except ValueError as e:
                 print(f"\nError calculating metrics (label mismatch?): {e}")
                 cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
+                accuracy_score_class = np.zeros(self.num_classes)
                 f1_scores_per_class = np.zeros(self.num_classes)
                 f1_macro = -1.0
                 f1_weighted = -1.0
             except Exception as e:
                 print(f"\nUnexpected error calculating metrics: {e}")
                 cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
+                accuracy_score_class = np.zeros(self.num_classes)
                 f1_scores_per_class = np.zeros(self.num_classes)
                 f1_macro = -1.0
                 f1_weighted = -1.0
@@ -363,16 +384,7 @@ def train_beat_classification(use_gpu_index,
                 print(f"\n----- Epoch {epoch + 1} Validation Metrics -----")
                 print("Confusion Matrix:")
                 print(cm)
-                print("\nPer-Class F1 Scores:")
-                if len(f1_scores_per_class) == len(self.class_names):
-                    for i, score in enumerate(f1_scores_per_class):
-                        print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
-                else:
-                    print(f"  F1 Scores raw: {f1_scores_per_class}")
 
-                print(f"\nMacro Avg F1-Score:    {f1_macro:.4f}")
-                print(f"Weighted Avg F1-Score: {f1_weighted:.4f}")
-                print("------------------------------------")
 
                 log_file = open(self.log_dir + "/train_log.txt", "a+")
                 log_file.writelines(f"\n----- Epoch {epoch + 1} Validation Metrics -----\n")
@@ -380,6 +392,40 @@ def train_beat_classification(use_gpu_index,
                 log_file.writelines(f"{cm}")
                 log_file.writelines("\nPer-Class F1 Scores:\n")
 
+                if len(f1_scores_per_class) == len(self.class_names):
+                    print("\nPer-Class F1 Scores:")
+                    for i, score in enumerate(f1_scores_per_class):
+                        print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
+                        if self.best_f1_class_value[self.class_names[i]] > score:
+                            print(f"\nMacro Avg F1-Score of {self.class_names[i]}:    {score:.4f}")
+                            self.best_f1_class_value[self.class_names[i]] = score
+                            ckt_name = os.path.join(self.best_f1_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                            for f in os.listdir(self.best_f1_class_checkpoint_dir[self.class_names[i]]):
+                                os.remove(os.path.join(self.best_f1_class_checkpoint_dir[self.class_names[i]], f))
+                            log_file.writelines(f"==================================================\n")
+                            log_file.writelines(f"\nMacro Avg F1-Score of {self.class_names[i]}:    {score:.4f}")
+                            log_file.writelines(f"==================================================\n")
+                            self.model.save_weights(ckt_name)
+                    print("\nPer-Class Precision Scores:")
+                    for i, score in enumerate(accuracy_score_class):
+                        print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
+                        if i > 0 and self.best_acc_class_value[self.class_names[i]] < score:
+                            print(f"\nMacro Avg Precision-Score of {self.class_names[i]}:    {score:.4f}")
+                            self.best_acc_class_value[self.class_names[i]] = score
+                            ckt_name = os.path.join(self.best_acc_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                            for f in os.listdir(self.best_acc_class_checkpoint_dir[self.class_names[i]]):
+                                os.remove(os.path.join(self.best_acc_class_checkpoint_dir[self.class_names[i]], f))
+                            log_file.writelines(f"==================================================\n")
+                            log_file.writelines(f"\nMacro Avg Precision-Score of {self.class_names[i]}:    {score:.4f}")
+                            log_file.writelines(f"==================================================\n")
+                            self.model.save_weights(ckt_name)
+
+                else:
+                    print(f"  F1 Scores raw: {f1_scores_per_class}")
+
+                print(f"\nMacro Avg F1-Score:    {f1_macro:.4f}")
+                print(f"Weighted Avg F1-Score: {f1_weighted:.4f}")
+                print("------------------------------------")
                 if (self.f1_macro > f1_macro and f1_macro != -1) or self.f1_macro == -1:
                     self.f1_macro = f1_macro
                     ckt_name = os.path.join(self.best_f1_checkpoint_dir,self.model_name + "-epoch-{}.weights.h5".format(epoch))
@@ -497,7 +543,7 @@ def train_beat_classification(use_gpu_index,
                                                 num_filters,
                                                 num_loop,
                                                 float(_qrs_model_path[-1]))
-        train_model.summary()
+        # train_model.summary()
     else:
         return None
 
@@ -554,7 +600,7 @@ def train_beat_classification(use_gpu_index,
                                    model_checkpoint_callback,  # Reads 'val_f1_macro' from `logs` and saves model
                                    tensorboard_callback   ],  # tf.compat.v1.keras.callbacks.TensorBoard(log_dir=tensorboard_dir)],
                         validation_data=val_dataset,
-                        class_weight=CLASS_WEIGHTS,
+                        # class_weight=CLASS_WEIGHTS,
                         validation_steps=1,
                         )
 
