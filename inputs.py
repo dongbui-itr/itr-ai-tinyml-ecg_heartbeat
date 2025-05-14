@@ -50,217 +50,6 @@ MAX_LEN_PLOT = 15
 EVENT_LEN_STANDARD = 100
 LABEL_BEAT_TYPES = OrderedDict(
     [
-        ("0", OrderedDict([
-            ("NOTABEAT", [
-           ]),
-            ("N", [
-                "sinus tachycardia/out_of_list",
-                "sinus arrhythmia/out_of_list",
-           ]),
-            ("A", [
-                "sinus tachycardia/atrial run",
-                "sinus tachycardia/atrial couplet",
-                "sinus tachycardia/atrial bigeminy",
-                "sinus tachycardia/atrial trigeminy",
-
-                "sinus bradycardia/atrial run",
-                "sinus bradycardia/atrial couplet",
-                "sinus bradycardia/atrial bigeminy",
-                "sinus bradycardia/atrial trigeminy",
-
-                "sinus arrhythmia/atrial run",
-                "sinus arrhythmia/atrial couplet",
-                "sinus arrhythmia/atrial bigeminy",
-                "sinus arrhythmia/atrial trigeminy",
-
-                "sinus rhythm/atrial run",
-                "sinus rhythm/atrial couplet",
-                "sinus rhythm/atrial bigeminy",
-                "sinus rhythm/atrial trigeminy",
-
-                "sinus tachycardia/supraventricular tachycardia",
-                "sinus bradycardia/supraventricular tachycardia",
-                "sinus arrhythmia/supraventricular tachycardia",
-                "sinus rhythm/supraventricular tachycardia",
-
-                "sinus tachycardia/paroxysmal supraventricular tachycardia",
-                "sinus bradycardia/paroxysmal supraventricular tachycardia",
-                "sinus arrhythmia/paroxysmal supraventricular tachycardia",
-                "sinus rhythm/paroxysmal supraventricular tachycardia",
-
-                "sinus tachycardia/pac",
-                "sinus bradycardia/pac",
-                "sinus arrhythmia/pac",
-                "sinus rhythm/pac",
-
-                "supraventricular tachycardia/out_of_list"
-           ]),
-            ("V", [
-                "sinus tachycardia/ventricular run",
-                "sinus tachycardia/ventricular couplet",
-                "sinus tachycardia/ventricular bigeminy",
-                "sinus tachycardia/ventricular trigeminy",
-
-                "sinus bradycardia/ventricular run",
-                "sinus bradycardia/ventricular couplet",
-                "sinus bradycardia/ventricular bigeminy",
-                "sinus bradycardia/ventricular trigeminy",
-
-                "sinus arrhythmia/ventricular run",
-                "sinus arrhythmia/ventricular couplet",
-                "sinus arrhythmia/ventricular bigeminy",
-                "sinus arrhythmia/ventricular trigeminy",
-
-                "sinus rhythm/ventricular run",
-                "sinus rhythm/ventricular couplet",
-                "sinus rhythm/ventricular bigeminy",
-                "sinus rhythm/ventricular trigeminy",
-
-                "sinus tachycardia/ventricular tachycardia",
-                "sinus bradycardia/ventricular tachycardia",
-                "sinus arrhythmia/ventricular tachycardia",
-                "sinus rhythm/ventricular tachycardia",
-
-                "sinus tachycardia/pvc",
-                "sinus bradycardia/pvc",
-                "sinus arrhythmia/pvc",
-                "sinus rhythm/pvc",
-
-                "ventricular tachycardia/out_of_list"
-           ]),
-            ("R", [
-                "sinus tachycardia/ivcd",
-                "sinus bradycardia/ivcd",
-                "sinus arrhythmia/ivcd",
-                "sinus rhythm/ivcd",
-           ]),
-       ])),
-        ("1", OrderedDict([
-            ("NOTABEAT", [
-           ]),
-            ("N", [
-                "sinus arrhythmia/out_of_list",
-                "sinus tachycardia/out_of_list",
-
-                "sinus tachycardia/multi events",
-                "sinus bradycardia/multi events",
-                "sinus arrhythmia/multi events",
-                "sinus rhythm/multi events",
-           ]),
-            ("A", [
-                "sinus tachycardia/atrial run",
-                "sinus tachycardia/atrial couplet",
-                "sinus tachycardia/atrial bigeminy",
-                "sinus tachycardia/atrial trigeminy",
-
-                "sinus bradycardia/atrial run",
-                "sinus bradycardia/atrial couplet",
-                "sinus bradycardia/atrial bigeminy",
-                "sinus bradycardia/atrial trigeminy",
-
-                "sinus arrhythmia/atrial run",
-                "sinus arrhythmia/atrial couplet",
-                "sinus arrhythmia/atrial bigeminy",
-                "sinus arrhythmia/atrial trigeminy",
-
-                "sinus rhythm/atrial run",
-                "sinus rhythm/atrial couplet",
-                "sinus rhythm/atrial bigeminy",
-                "sinus rhythm/atrial trigeminy",
-
-                "sinus tachycardia/supraventricular tachycardia",
-                "sinus bradycardia/supraventricular tachycardia",
-                "sinus arrhythmia/supraventricular tachycardia",
-                "sinus rhythm/supraventricular tachycardia",
-
-                "sinus tachycardia/paroxysmal supraventricular tachycardia",
-                "sinus bradycardia/paroxysmal supraventricular tachycardia",
-                "sinus arrhythmia/paroxysmal supraventricular tachycardia",
-                "sinus rhythm/paroxysmal supraventricular tachycardia",
-
-                "sinus tachycardia/pac",
-                "sinus bradycardia/pac",
-                "sinus arrhythmia/pac",
-                "sinus rhythm/pac",
-
-                "supraventricular tachycardia/out_of_list"
-           ]),
-            ("V", [
-                "sinus tachycardia/ventricular run",
-                "sinus tachycardia/ventricular couplet",
-                "sinus tachycardia/ventricular bigeminy",
-                "sinus tachycardia/ventricular trigeminy",
-
-                "sinus bradycardia/ventricular run",
-                "sinus bradycardia/ventricular couplet",
-                "sinus bradycardia/ventricular bigeminy",
-                "sinus bradycardia/ventricular trigeminy",
-
-                "sinus arrhythmia/ventricular run",
-                "sinus arrhythmia/ventricular couplet",
-                "sinus arrhythmia/ventricular bigeminy",
-                "sinus arrhythmia/ventricular trigeminy",
-
-                "sinus rhythm/ventricular run",
-                "sinus rhythm/ventricular couplet",
-                "sinus rhythm/ventricular bigeminy",
-                "sinus rhythm/ventricular trigeminy",
-
-                "sinus tachycardia/ventricular tachycardia",
-                "sinus bradycardia/ventricular tachycardia",
-                "sinus arrhythmia/ventricular tachycardia",
-                "sinus rhythm/ventricular tachycardia",
-
-                "sinus tachycardia/pvc",
-                "sinus bradycardia/pvc",
-                "sinus arrhythmia/pvc",
-                "sinus rhythm/pvc",
-
-                "ventricular tachycardia/out_of_list"
-           ]),
-            ("R", [
-                "sinus tachycardia/ivcd",
-                "sinus bradycardia/ivcd",
-                "sinus arrhythmia/ivcd",
-                "sinus rhythm/ivcd",
-           ]),
-            ("Q", [
-           ]),
-       ])),
-        ("2", OrderedDict([
-            ("NOTABEAT", [
-           ]),
-            ("ARTIFACT", [
-           ]),
-            ("N", [
-           ]),
-            ("A", [
-           ]),
-            ("V", [
-           ]),
-            ("R", [
-           ]),
-            ("Q", [
-           ]),
-       ])),
-        ("3", OrderedDict([
-            ("NOTABEAT", [
-           ]),
-            ("N", [
-           ]),
-            ("S", [
-           ]),
-            ("V", [
-           ]),
-            ("R", [
-           ]),
-       ])),
-        ("4", OrderedDict([
-            ("NOTABEAT", [
-           ]),
-            ("N", [
-           ]),
-       ])),
         ("5", OrderedDict([
             ("NOTABEAT", [
            ]),
@@ -544,8 +333,12 @@ def _process_sample(use_gpu_index,
             # beat_true = []
             if len(_buf_ecg) > stop_samp:
                 buf_ecg = _buf_ecg[start_samp:stop_samp]
-                symbol_true = _symbol_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))]
-                beat_true = _beat_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))] - start_samp
+                try:
+                    symbol_true = _symbol_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))]
+                    beat_true = _beat_true[np.flatnonzero((_beat_true < stop_samp) & (_beat_true >= start_samp))] - start_samp
+                except:
+                    symbol_true = []
+                    beat_true = []
             else:
                 break
 
@@ -573,15 +366,18 @@ def _process_sample(use_gpu_index,
                         __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
                     elif symbol_true[i] in ['S', 'V']:
-                        # __symbol_true.append('V')
                         __symbol_true.append('N')
+                        # __symbol_true.append('N')
                         __beat_true.append(beat_true[i])
-                    # elif symbol_true[i] in ['|', 'M']:
-                    #     __symbol_true.append('ARTIFACT')
-                    #     __beat_true.append(beat_true[i])
+                    elif symbol_true[i] in ['|', 'M']:
+                        __symbol_true.append('ARTIFACT')
+                        __beat_true.append(beat_true[i])
 
                 symbol_true = np.asarray(__symbol_true)
                 beat_true = np.asarray(__beat_true)
+            else:
+                symbol_true = []
+                beat_true = []
 
             if debug: #and flag_debug and 'export_S' in file_name:
                 plt.title(f"{file_name}\n{event_channel}")
@@ -605,15 +401,117 @@ def _process_sample(use_gpu_index,
                           np.arange(0, data_len, feature_len)[:, None, None]
 
             lbl_samp = np.full(data_len, ind["NOTABEAT"], dtype=int)
-            if len(sample_artifact) > 0 and "ARTIFACT" in beat_class.keys():
-                for a in sample_artifact:
-                    a = (a * sampling_rate) // fs_origin
-                    lbl_samp[a] = ind["ARTIFACT"]
-            try:
-                lbl_samp[beat_true] = symbol_true
+            if len(symbol_true) > 0:
+                if len(sample_artifact) > 0 and "ARTIFACT" in beat_class.keys():
+                    for a in sample_artifact:
+                        a = (a * sampling_rate) // fs_origin
+                        lbl_samp[a] = ind["ARTIFACT"]
+                try:
+                    lbl_samp[beat_true] = symbol_true
+                    process_data = buf_ecg[data_index]
+                    lbl_samp_frame = lbl_samp[label_index]
+
+                    process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int)
+                    _process_label_symbol = process_label_symbol.flatten()
+                    res_db_dict[ds_type]["total_sample"] += len(process_data)
+                    for key in beat_class.keys():
+                        lbl_int = int(ind[key])
+                        lbl_pos = np.where(_process_label_symbol == lbl_int)[0]
+                        if len(lbl_pos) > 0:
+                            res_db_dict[ds_type][key] += len(lbl_pos)
+
+                    # if save_image:
+                    #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
+                    #     if not os.path.exists(sub_save_image):
+                    #         os.makedirs(sub_save_image)
+                    #         file_count = 0
+                    #     else:
+                    #         _, _, files = next(os.walk(sub_save_image))
+                    #         file_count = len(files)
+                    #
+                    #     if file_count < MAX_NUM_IMG_SAVE:
+                    #         note = ""
+                    #         for n in ind_invert.keys():
+                    #             note += "{}: {}\n".format(n, ind_invert[n])
+                    #
+                    #         buf_frame = buf_ecg.copy()
+                    #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
+                    #         buf_mark = np.zeros(data_len)
+                    #         buf_mark[_from_event: _to_event] = max(buf_lbl)
+                    #         plot_len = data_len // 3
+                    #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
+                    #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
+                    #             main_rhythm_file,
+                    #             sub_rhythm_file,
+                    #             basename(file_name)), fontsize=11)
+                    #         for i, ax in enumerate(axx):
+                    #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
+                    #             ax.text(0, 0, technician_comment)
+                    #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
+                    #                     wrap=True)
+                    #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
+                    #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
+                    #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
+                    #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
+                    #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
+                    #             ax.set_xticks(major_ticks)
+                    #             ax.set_xticks(minor_ticks, minor=True)
+                    #             ax.set_yticks(
+                    #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
+                    #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
+                    #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
+                    #             ax.legend()
+                    #
+                    #         DEBUG_IMG = False
+                    #         if not DEBUG_IMG:
+                    #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
+                    #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
+                    #             plt.close(fig)
+                    #         else:
+                    #             print(basename(file_name))
+                    #             plt.show()
+                    # print(file_name.split('export_')[-1].split('/')[0])
+                    # print(process_label_symbol)
+
+                    # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                    #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                    #                 writer=writer)
+
+                    # _process_data = np.concatenate((process_data, process_data/3), axis=0)
+                    # _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
+                    # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
+                    #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                    #                 writer=writer)
+
+                    if process_label_symbol.shape[1] != num_block and process_data.shape[1]!= feature_len:
+                        writer_txt.writelines(f"Error: data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+                        continue
+                    else:
+                        writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+                    # writer_txt.writelines(f"data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
+
+                    np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
+                                    label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                                    writer=writer)
+
+                    np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+                                    label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                                    writer=writer)
+
+                    # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
+                    #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                    #                 writer=writer)
+
+                    # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
+                    #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                    #                 writer=writer)
+
+                    # print("test")
+                except Exception as err:
+                    print(f"ERR TFRECORD: {err}")
+            else:
                 process_data = buf_ecg[data_index]
                 lbl_samp_frame = lbl_samp[label_index]
-
                 process_label_symbol = np.asarray([np.max(lbl, axis=1) for lbl in lbl_samp_frame], dtype=int)
                 _process_label_symbol = process_label_symbol.flatten()
                 res_db_dict[ds_type]["total_sample"] += len(process_data)
@@ -623,70 +521,7 @@ def _process_sample(use_gpu_index,
                     if len(lbl_pos) > 0:
                         res_db_dict[ds_type][key] += len(lbl_pos)
 
-                # if save_image:
-                #     sub_save_image = dir_img_deb + main_rhythm_file + "/" + sub_rhythm_file
-                #     if not os.path.exists(sub_save_image):
-                #         os.makedirs(sub_save_image)
-                #         file_count = 0
-                #     else:
-                #         _, _, files = next(os.walk(sub_save_image))
-                #         file_count = len(files)
-                #
-                #     if file_count < MAX_NUM_IMG_SAVE:
-                #         note = ""
-                #         for n in ind_invert.keys():
-                #             note += "{}: {}\n".format(n, ind_invert[n])
-                #
-                #         buf_frame = buf_ecg.copy()
-                #         buf_lbl = np.asarray([np.full(label_len, l) for l in process_label_symbol]).flatten()
-                #         buf_mark = np.zeros(data_len)
-                #         buf_mark[_from_event: _to_event] = max(buf_lbl)
-                #         plot_len = data_len // 3
-                #         fig, axx = plt.subplots(nrows=3, ncols=1, figsize=(19.20, 10.80))
-                #         fig.suptitle('main: {}; sub {}; Id: {}'.format(
-                #             main_rhythm_file,
-                #             sub_rhythm_file,
-                #             basename(file_name)), fontsize=11)
-                #         for i, ax in enumerate(axx):
-                #             t = np.arange(i * plot_len, (i + 1) * plot_len, 1) / sampling_rate
-                #             ax.text(0, 0, technician_comment)
-                #             ax.text(0, np.mean(buf_ecg[i * plot_len: (i + 1) * plot_len]), note, ha='left', rotation=0,
-                #                     wrap=True)
-                #             ax.plot(t, buf_frame[i * plot_len: (i + 1) * plot_len], label="buf")
-                #             ax.plot(t, buf_lbl[i * plot_len: (i + 1) * plot_len], label="type")
-                #             ax.plot(t, buf_mark[i * plot_len: (i + 1) * plot_len], label="mark")
-                #             major_ticks = np.arange(i * plot_len, (i + 1) * plot_len, sampling_rate) / sampling_rate
-                #             minor_ticks = np.arange(i * plot_len, (i + 1) * plot_len, label_len) / sampling_rate
-                #             ax.set_xticks(major_ticks)
-                #             ax.set_xticks(minor_ticks, minor=True)
-                #             ax.set_yticks(
-                #                 np.arange(round(np.min(buf_frame), 0), round(min(np.max(buf_lbl), 5), 0) + 1, 1))
-                #             ax.grid(which='major', color='#CCCCCC', linestyle='--')
-                #             ax.grid(which='minor', color='#CCCCCC', linestyle=':')
-                #             ax.legend()
-                #
-                #         DEBUG_IMG = False
-                #         if not DEBUG_IMG:
-                #             img_name = sub_save_image + "/" + basename(file_name) + "_" + str(event_channel)
-                #             fig.savefig(img_name + ".svg", format='svg', dpi=1200)
-                #             plt.close(fig)
-                #         else:
-                #             print(basename(file_name))
-                #             plt.show()
-                # print(file_name.split('export_')[-1].split('/')[0])
-                # print(process_label_symbol)
-
-                # np_to_tfrecords(sample_buffer=np.reshape(process_data, (-1, feature_len)),
-                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                #                 writer=writer)
-
-                # _process_data = np.concatenate((process_data, process_data/3), axis=0)
-                # _process_label_symbol = np.concatenate((process_label_symbol, process_label_symbol), axis=0)
-                # np_to_tfrecords(sample_buffer=np.reshape(_process_data, (-1, feature_len)),
-                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                #                 writer=writer)
-
-                if process_label_symbol.shape[1] != num_block and process_data.shape[1]!= feature_len:
+                if process_label_symbol.shape[1] != num_block and process_data.shape[1] != feature_len:
                     writer_txt.writelines(f"Error: data_shape: {process_data.shape}, label_shape: {process_label_symbol.shape}\n")
                     continue
                 else:
@@ -697,21 +532,9 @@ def _process_sample(use_gpu_index,
                                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
                                 writer=writer)
 
-                # np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
-                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                #                 writer=writer)
-
-                # np_to_tfrecords(sample_buffer=np.reshape(process_data/5, (-1, feature_len)),
-                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                #                 writer=writer)
-
-                # np_to_tfrecords(sample_buffer=np.reshape(process_data/9, (-1, feature_len)),
-                #                 label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
-                #                 writer=writer)
-
-                # print("test")
-            except Exception as err:
-                print(f"ERR TFRECORD: {err}")
+                np_to_tfrecords(sample_buffer=np.reshape(process_data / 3, (-1, feature_len)),
+                                label_buffer=np.reshape(process_label_symbol, (-1, num_block)),
+                                writer=writer)
 
             start_samp += int(OVERLAB_IN_FILE * sampling_rate)
             # break

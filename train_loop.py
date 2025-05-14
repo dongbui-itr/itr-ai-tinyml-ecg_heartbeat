@@ -16,10 +16,10 @@ from all_config import DB_TESTING, PATH_DATA_EC57
 import copy
 
 def train():
-    MAX_EPOCH = 50
+    MAX_EPOCH = 2
     dir_name = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
-    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
-    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("250505"))
+    MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("%y%m%d"))
+    # MEDIA_PATH = '/mnt/MegaProject/Dong_data/QRS_Classification_portal_data/{}/'.format(datetime.today().strftime("250512"))
     if not os.path.exists(MEDIA_PATH):
         os.makedirs(MEDIA_PATH)
 
@@ -40,7 +40,7 @@ def train():
     DATA = [
         # '128_05_40_0_0_0_6_0_0.99', #240529_NSV
         # '128_05_40_0_0_0_7_0_0.99', #240712_NSV
-        '250_05_78_0_0_0_7_0_0.99'
+        '250_05_78_0_1_0_6_0_0.99'
     ]
     BATCH_SIZE_TRAINING = [
         512,
@@ -56,7 +56,7 @@ def train():
         # "beat_seq_mobilenet_v2keras_1d_0_0.0.0_0_0.5",
         # "beat_concat_seq3_250Hz_2_8.16.32_0_0.5",
         # "beat_concat_seq3_250Hz_2_8.16.8_0_0.5",
-        "beat_concat_seq3_250Hz_2_8.24.8_0_0.5",
+        "beat_concat_seq4_250Hz_2_4.8.16.8.4_0_0.5",
     ]
 
     # MobileNetv2_1D(input_shape, num_of_class, k, alpha=1.0, rate=0.5):
@@ -166,6 +166,8 @@ def train():
             with open(datastore_file, 'r') as json_file:
                 datastore_dict = json.load(json_file)
 
+            # sel_ckt_dirs = ["best_accuracy_N", "best_f1_N", "best_avg", "best_avg_2", "best_loss", "last"]
+            sel_ckt_dirs = ["best_avg_2"]
             for i, model_name in enumerate(MODEL):
                 model_dir = '{}/model/{}_{}'.format(output_dir, model_name, count)
                 log_dir = '{}/log/{}_'.format(output_dir, model_name, count)
@@ -179,43 +181,45 @@ def train():
                     if not os.path.exists(i):
                         os.makedirs(i)
 
-                # region training
-                process_train = multiprocessing.Process(target=train_beat_classification,
-                                                        args=(0,
-                                                              model_name,
-                                                              log_dir,
-                                                              model_dir,
-                                                              datastore_dict,
-                                                              None,
-                                                              train_directory,
-                                                              eval_directory,
-                                                              batch_size,
-                                                              4,
-                                                              2,
-                                                              MAX_EPOCH))
-                process_train.start()
-                process_train.join()
-                # endregion training
+                # # region training
+                # process_train = multiprocessing.Process(target=train_beat_classification,
+                #                                         args=(0,
+                #                                               model_name,
+                #                                               log_dir,
+                #                                               model_dir,
+                #                                               datastore_dict,
+                #                                               None,
+                #                                               train_directory,
+                #                                               eval_directory,
+                #                                               batch_size,
+                #                                               4,
+                #                                               2,
+                #                                               MAX_EPOCH))
+                # process_train.start()
+                # process_train.join()
+                # os.system(f"rm -rf {train_directory}/*")
+                # os.system(f"rm -rf {eval_directory}/*")
+                # # endregion training
 
                 # region ec57
-                # checkpoint_dir = "{}/best_squared_error_metric".format(model_dir)
-                checkpoint_dir = "{}/best_avg".format(model_dir)
-                output_ec57_directory = '{}/ec57/{}/'.format(output_dir, model_name)
-                if not os.path.isdir(output_ec57_directory):
-                    os.makedirs(output_ec57_directory)
-                try:
-                    run_ec57(use_gpu_index=0,
-                             model_name=model_name,
-                             datastore_file=datastore_file,
-                             checkpoint_dir=checkpoint_dir,
-                             test_ec57_dir=DB_TESTING,
-                             output_ec57_directory=output_ec57_directory,
-                             physionet_directory=PATH_DATA_TRAINING,
-                             overlap=5,
-                             num_of_process=3)
+                for sel_ckt_dir in sel_ckt_dirs:
+                    checkpoint_dir = "{}/{}".format(model_dir, sel_ckt_dir)
+                    output_ec57_directory = '{}/ec57_{}/{}/'.format(output_dir, sel_ckt_dir, model_name)
+                    if not os.path.isdir(output_ec57_directory):
+                        os.makedirs(output_ec57_directory)
+                    try:
+                        run_ec57(use_gpu_index=0,
+                                 model_name=model_name,
+                                 datastore_file=datastore_file,
+                                 checkpoint_dir=checkpoint_dir,
+                                 test_ec57_dir=DB_TESTING,
+                                 output_ec57_directory=output_ec57_directory,
+                                 physionet_directory=PATH_DATA_TRAINING,
+                                 overlap=5,
+                                 num_of_process=3)
 
-                except Exception as err:
-                    print('Error at run_ec57:', err)
+                    except Exception as err:
+                        print('Error at run_ec57:', err)
 
 if __name__ == '__main__':
     train()

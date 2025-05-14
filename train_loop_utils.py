@@ -133,6 +133,9 @@ def train_beat_classification(use_gpu_index,
     best_acc_class_checkpoint_dir = dict()
     best_acc_class_value = dict()
     for i in beat_class.keys():
+        if "NOTABEAT" in i:
+            continue
+
         best_f1_class_checkpoint_dir[i] = f"{model_dir}/best_f1_{i}"
         best_f1_class_value[i] = 100
         best_acc_class_checkpoint_dir[i] = f"{model_dir}/best_accuracy_{i}"
@@ -152,17 +155,6 @@ def train_beat_classification(use_gpu_index,
             except:
                 bk_metric["stop_train"] = False
 
-    fieldnames = ['epoch',
-                  'accuracy_train', 'loss_train', 'precision_train', 'recall_train',
-                  'accuracy_eval', 'loss_eval', 'precision_eval', 'recall_eval',
-                  'squared_error_metrics_train', 'squared_error_metrics_eval',
-                  'f1_score_metrics_train', 'f1_score_metrics_eval']
-
-    if not os.path.exists(log_dir + '/{}_log.csv'.format(model_name)):
-        with open(log_dir + '/{}_log.csv'.format(model_name), mode='a+') as report_file:
-            report_writer = csv.DictWriter(report_file, fieldnames=fieldnames)
-            report_writer.writeheader()
-
     log_train = TextLogging(log_dir + '/{}_training_log.txt'.format(model_name), 'a+')
 
     log_train.write_mylines('Begin : {}\n'.format(str(datetime.datetime.now())))
@@ -181,11 +173,11 @@ def train_beat_classification(use_gpu_index,
 
     physical_devices = tf.config.list_physical_devices('GPU')
     if len(physical_devices) > 0:
-        print('Use GPU')
+        print('-------Use GPU-------')
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
     else:
         print(os.environ["CUDA_VISIBLE_DEVICES"])
-        print('Use CPU')
+        print('-------Use CPU-------')
 
     def _preprocess_proto(example_proto, feature_len, label_len, class_num):
         """Read sample from protocol buffer."""
@@ -220,7 +212,7 @@ def train_beat_classification(use_gpu_index,
         """
 
         def __init__(self, validation_dataset, num_classes, class_names=None, best_f1_checkpoint_dir=None, best_loss_checkpoint_dir=None,
-                     print_every=1, plot_every=1, log_dir=None, file_writer=None, model_name="",
+                     print_every=1, plot_every=1, log_dir=None, file_writer=None, log_train=None, model_name="",
                      steps=None):
             super().__init__()
             if not isinstance(validation_dataset, tf.data.Dataset):
@@ -235,9 +227,11 @@ def train_beat_classification(use_gpu_index,
             self.plot_every = max(0, int(plot_every))
             self.log_dir = log_dir
             self.file_writer_cm = file_writer
+            self.log_train = log_train
             self.steps = steps  # Number of batches to iterate over
             self.f1_macro = -1
             self.f1_avg = -1
+            self.f1_avg_2 = -1
             self.model_name = model_name
 
             self._setup_class_names()
@@ -247,6 +241,9 @@ def train_beat_classification(use_gpu_index,
             self.best_f1_class_value = best_f1_class_value
             self.best_acc_class_checkpoint_dir = best_acc_class_checkpoint_dir
             self.best_acc_class_value = best_acc_class_value
+            self.best_f1_avg_2_checkpoint_dir = self.best_f1_avg_checkpoint_dir.replace("best_avg", "best_avg_2")
+            if not os.path.exists(self.best_f1_avg_2_checkpoint_dir):
+                os.makedirs(self.best_f1_avg_2_checkpoint_dir)
 
             if self.log_dir and self.plot_every > 0 and self.file_writer_cm is None:
                 cm_log_path = os.path.join(self.log_dir, 'cm')
@@ -308,6 +305,30 @@ def train_beat_classification(use_gpu_index,
             except Exception as e:
                 print(f"\nError logging confusion matrix to TensorBoard: {e}")
 
+        def f1_score_weight(self, y_true, y_pred, weight, beta_f1=2):
+            vs = (y_true == y_pred)
+            nobeat_tp = np.flatnonzero((vs == True) & (y_true == 0))
+            nobeat_fp = np.flatnonzero((vs == False) & (y_true == 0))
+            beat_tp = np.flatnonzero((vs == True) & (y_true == 1))
+            beat_fp = np.flatnonzero((vs == False) & (y_true == 1))
+
+            nobeat_tn = np.flatnonzero((vs == True) & (y_true == 1))
+            nobeat_fn = np.flatnonzero((vs == False) & (y_true == 1))
+            beat_tn = np.flatnonzero((vs == True) & (y_true == 0))
+            beat_fn = np.flatnonzero((vs == False) & (y_true == 0))
+
+            nobeat_recall = len(nobeat_tp)/(len(nobeat_tp) + len(nobeat_fn))
+            nobeat_precision = len(nobeat_tp)/(len(nobeat_tp) + len(nobeat_fp))
+            beat_recall = len(beat_tp) / (len(beat_tp) + len(beat_fn))
+            beat_precision = len(beat_tp) / (len(beat_tp) + len(beat_fp))
+
+            nobeat_f1 = (1 + np.power(beta_f1, 2)) * nobeat_precision * nobeat_recall / (beta_f1 * nobeat_precision + nobeat_recall)
+            beat_f1 = (1 + np.power(beta_f1, 2)) * beat_precision * beat_recall / (beta_f1 * beat_precision + beat_recall)
+
+            f1_score_weight = weight[0] * nobeat_f1 + weight[1] * beat_f1
+            return nobeat_recall, nobeat_precision, beat_recall, beat_precision, nobeat_f1, beat_f1, f1_score_weight
+
+
         def on_epoch_end(self, epoch, logs=None):
             logs = logs or {}
             all_y_true = []
@@ -364,6 +385,13 @@ def train_beat_classification(use_gpu_index,
                 f1_scores_per_class = f1_score(y_true, y_pred, labels=labels_range, average=None, zero_division=0)
                 f1_macro = f1_score(y_true, y_pred, labels=labels_range, average='macro', zero_division=0)
                 f1_weighted = f1_score(y_true, y_pred, labels=labels_range, average='weighted', zero_division=0)
+                sample_weight = np.asarray(list(CLASS_WEIGHTS.values()))
+                y_true[y_true == 3] = 0
+                y_true[y_true == 2] = 1
+                y_pred[y_pred == 3] = 0
+                y_pred[y_pred == 2] = 1
+                # f1_weighted_2 = f1_score(y_true, y_pred, labels=[0, 1], average='weighted', sample_weight=[0.3, 0.7], zero_division=0)
+                nobeat_recall, nobeat_precision, beat_recall, beat_precision, nobeat_f1, beat_f1, f1_weighted_2 = self.f1_score_weight(y_true, y_pred, weight=[0.4, 0.6], beta_f1=2)
             except ValueError as e:
                 print(f"\nError calculating metrics (label mismatch?): {e}")
                 cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
@@ -371,6 +399,7 @@ def train_beat_classification(use_gpu_index,
                 f1_scores_per_class = np.zeros(self.num_classes)
                 f1_macro = -1.0
                 f1_weighted = -1.0
+                f1_weighted_2 = -1.0
             except Exception as e:
                 print(f"\nUnexpected error calculating metrics: {e}")
                 cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
@@ -378,46 +407,47 @@ def train_beat_classification(use_gpu_index,
                 f1_scores_per_class = np.zeros(self.num_classes)
                 f1_macro = -1.0
                 f1_weighted = -1.0
+                f1_weighted_2 = -1.0
 
             # --- Print Metrics ---
             if (epoch + 1) % self.print_every == 0:
                 print(f"\n----- Epoch {epoch + 1} Validation Metrics -----")
                 print("Confusion Matrix:")
                 print(cm)
-
-
-                log_file = open(self.log_dir + "/train_log.txt", "a+")
-                log_file.writelines(f"\n----- Epoch {epoch + 1} Validation Metrics -----\n")
-                log_file.writelines("Confusion Matrix:\n")
-                log_file.writelines(f"{cm}")
-                log_file.writelines("\nPer-Class F1 Scores:\n")
+                # log_file = open(self.log_dir + "/train_log.txt", "a+")
+                self.log_train.write_mylines(f"\n----- Epoch {epoch + 1} Validation Metrics -----\n")
+                self.log_train.write_mylines("Confusion Matrix:\n")
+                self.log_train.write_mylines(f"{cm}")
+                self.log_train.write_mylines("\nPer-Class F1 Scores:\n")
 
                 if len(f1_scores_per_class) == len(self.class_names):
                     print("\nPer-Class F1 Scores:")
                     for i, score in enumerate(f1_scores_per_class):
                         print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
-                        if self.best_f1_class_value[self.class_names[i]] > score:
-                            print(f"\nMacro Avg F1-Score of {self.class_names[i]}:    {score:.4f}")
+                        if i> 0 and self.best_f1_class_value[self.class_names[i]] < score:
+                            print(f"\n-----------------------------------------------------------------\n")
+                            print(f"Saving F1-Score of {self.class_names[i]}:    {score:.4f}\n")
                             self.best_f1_class_value[self.class_names[i]] = score
-                            ckt_name = os.path.join(self.best_f1_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                            ckt_name = os.path.join(self.best_f1_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}-f1-{}.weights.h5".format(epoch, f"{score:.4f}"))
                             for f in os.listdir(self.best_f1_class_checkpoint_dir[self.class_names[i]]):
                                 os.remove(os.path.join(self.best_f1_class_checkpoint_dir[self.class_names[i]], f))
-                            log_file.writelines(f"==================================================\n")
-                            log_file.writelines(f"\nMacro Avg F1-Score of {self.class_names[i]}:    {score:.4f}")
-                            log_file.writelines(f"==================================================\n")
+                            self.log_train.write_mylines(f"==================================================\n")
+                            self.log_train.write_mylines(f"Macro Avg F1-Score of {self.class_names[i]}:    {score:.4f}\n")
+                            self.log_train.write_mylines(f"==================================================\n")
                             self.model.save_weights(ckt_name)
                     print("\nPer-Class Precision Scores:")
                     for i, score in enumerate(accuracy_score_class):
                         print(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}")
                         if i > 0 and self.best_acc_class_value[self.class_names[i]] < score:
-                            print(f"\nMacro Avg Precision-Score of {self.class_names[i]}:    {score:.4f}")
+                            print(f"-----------------------------------------------------------------\n")
+                            print(f"Saving Precision-Score of {self.class_names[i]}:    {score:.4f}\n")
                             self.best_acc_class_value[self.class_names[i]] = score
-                            ckt_name = os.path.join(self.best_acc_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                            ckt_name = os.path.join(self.best_acc_class_checkpoint_dir[self.class_names[i]], self.model_name + "-epoch-{}-acc-{}.weights.h5".format(epoch, f"{score:.4f}"))
                             for f in os.listdir(self.best_acc_class_checkpoint_dir[self.class_names[i]]):
                                 os.remove(os.path.join(self.best_acc_class_checkpoint_dir[self.class_names[i]], f))
-                            log_file.writelines(f"==================================================\n")
-                            log_file.writelines(f"\nMacro Avg Precision-Score of {self.class_names[i]}:    {score:.4f}")
-                            log_file.writelines(f"==================================================\n")
+                            self.log_train.write_mylines(f"==================================================\n")
+                            self.log_train.write_mylines(f"Macro Avg Precision-Score of {self.class_names[i]}:    {score:.4f}\n")
+                            self.log_train.write_mylines(f"==================================================\n")
                             self.model.save_weights(ckt_name)
 
                 else:
@@ -426,39 +456,52 @@ def train_beat_classification(use_gpu_index,
                 print(f"\nMacro Avg F1-Score:    {f1_macro:.4f}")
                 print(f"Weighted Avg F1-Score: {f1_weighted:.4f}")
                 print("------------------------------------")
-                if (self.f1_macro > f1_macro and f1_macro != -1) or self.f1_macro == -1:
+                if (self.f1_macro < f1_macro and f1_macro != -1) or self.f1_macro == -1:
                     self.f1_macro = f1_macro
-                    ckt_name = os.path.join(self.best_f1_checkpoint_dir,self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                    print(f"-----------------------------------------------------------------\n")
+                    print(f"Saving F1-Score:    {f1_macro:.4f}\n")
+                    ckt_name = os.path.join(self.best_f1_checkpoint_dir,self.model_name + "-epoch-{}-f1-{}.weights.h5".format(epoch, f"{f1_macro:.4f}" ))
                     for f in os.listdir(self.best_f1_checkpoint_dir):
                         os.remove(os.path.join(self.best_f1_checkpoint_dir, f))
 
-                    log_file.writelines(f"==================================================\n")
-                    log_file.writelines(f"\nMacro F1-Score:    {f1_macro:.4f}\n")
-                    log_file.writelines(f"==================================================\n")
+                    self.log_train.write_mylines(f"==================================================\n")
+                    self.log_train.write_mylines(f"Macro F1-Score:    {f1_macro:.4f}\n")
+                    self.log_train.write_mylines(f"==================================================\n")
                     self.model.save_weights(ckt_name)
 
-                if (self.f1_avg > f1_weighted and f1_weighted != -1) or self.f1_avg == -1:
+                if (self.f1_avg < f1_weighted and f1_weighted != -1) or self.f1_avg == -1:
                     self.f1_avg = f1_weighted
-                    ckt_name = os.path.join(self.best_f1_avg_checkpoint_dir,self.model_name + "-epoch-{}.weights.h5".format(epoch))
+                    ckt_name = os.path.join(self.best_f1_avg_checkpoint_dir, self.model_name + "-epoch-{}-f1_avg-{}.weights.h5".format(epoch, f"{f1_weighted:.4f}"))
                     for f in os.listdir(self.best_f1_avg_checkpoint_dir):
                         os.remove(os.path.join(self.best_f1_avg_checkpoint_dir, f))
 
-                    log_file.writelines(f"==================================================\n")
-                    log_file.writelines(f"\nMacro Avg F1-Score:    {f1_weighted:.4f}\n")
-                    log_file.writelines(f"==================================================\n")
+                    self.log_train.write_mylines(f"==================================================\n")
+                    self.log_train.write_mylines(f"Macro Avg F1-Score:    {f1_weighted:.4f}\n")
+                    self.log_train.write_mylines(f"And Saving \n")
+                    self.log_train.write_mylines(f"==================================================\n")
                     self.model.save_weights(ckt_name)
 
+                if (self.f1_avg_2 < f1_weighted_2 and f1_weighted_2 != -1) or self.f1_avg_2 == -1:
+                    self.f1_avg_2 = f1_weighted_2
+                    ckt_name = os.path.join(self.best_f1_avg_2_checkpoint_dir, self.model_name + "-epoch-{}-f1_avg-{}.weights.h5".format(epoch, f"{f1_weighted_2:.4f}"))
+                    for f in os.listdir(self.best_f1_avg_2_checkpoint_dir):
+                        os.remove(os.path.join(self.best_f1_avg_2_checkpoint_dir, f))
+
+                    self.log_train.write_mylines(f"==================================================\n")
+                    self.log_train.write_mylines(f"Macro Avg F1-Score-2:    {f1_weighted_2:.4f}\n")
+                    self.log_train.write_mylines(f"And Saving \n")
+                    self.log_train.write_mylines(f"==================================================\n")
+                    self.model.save_weights(ckt_name)
 
                 if len(f1_scores_per_class) == len(self.class_names):
                     for i, score in enumerate(f1_scores_per_class):
-                        log_file.writelines(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}\n")
+                        self.log_train.write_mylines(f"  - Class '{self.class_names[i]}' ({i}): {score:.4f}\n")
                 else:
-                    log_file.writelines(f"  F1 Scores raw: {f1_scores_per_class}\n")
+                    self.log_train.write_mylines(f"  F1 Scores raw: {f1_scores_per_class}\n")
 
-                log_file.writelines(f"\nMacro Avg F1-Score:    {f1_macro:.4f}\n")
-                log_file.writelines(f"Weighted Avg F1-Score: {f1_weighted:.4f}\n")
-                log_file.writelines("------------------------------------\n")
-                log_file.close()
+                self.log_train.write_mylines(f"\nMacro Avg F1-Score:    {f1_macro:.4f}\n")
+                self.log_train.write_mylines(f"Weighted Avg F1-Score: {f1_weighted:.4f}\n")
+                self.log_train.write_mylines("------------------------------------\n")
 
 
             # --- Plot Confusion Matrix ---
@@ -567,6 +610,7 @@ def train_beat_classification(use_gpu_index,
         print_every=1,
         plot_every=0,  # Disable direct plotting if using TensorBoard heavily
         log_dir=tensorboard_log_dir,  # Specify log dir for CM plots in TensorBoard
+        log_train=log_train,
         best_loss_checkpoint_dir=best_loss_checkpoint_dir,
         best_f1_checkpoint_dir=best_f1_checkpoint_dir,
         model_name=model_name

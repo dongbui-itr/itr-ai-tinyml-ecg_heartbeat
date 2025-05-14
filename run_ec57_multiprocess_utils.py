@@ -1087,6 +1087,8 @@ def beat_classification(beat_model,
         beat_filter = [1.0, 30.0]
         beat_clip = None
 
+
+
     beat_inv = {i: k for i, k in enumerate(beat_class.keys())}
     beat_ind = {k: i for i, k in enumerate(beat_class.keys())}
 
@@ -1104,6 +1106,7 @@ def beat_classification(beat_model,
 
         signal = wf.rdsamp(file_name, sampfrom=samp_from, sampto=samp_to, channels=[channel_ecg])[0]
         signal = np.asarray(signal).flatten()
+        signal = np.nan_to_num(signal)
 
         if header.fs != sampling_rate:
             buf_ecg_org, _ = resample_sig(signal, header.fs, sampling_rate)
@@ -1114,6 +1117,13 @@ def beat_classification(beat_model,
                                                 beat_filter[0],
                                                 beat_filter[1],
                                                 sampling_rate)
+
+        if beat_ebwr:
+            buf_ecg_filter = bwr(buf_ecg_filter, sampling_rate)
+
+        if beat_enorm:
+            from inputs import NUM_NORMALIZATION
+            buf_ecg_filter = norm(buf_ecg_filter, int(NUM_NORMALIZATION * sampling_rate))
 
         data_index = np.arange(beat_feature_len)[None, :] + \
                      np.arange(0, len(buf_ecg_filter) - beat_feature_len // 2,
@@ -1241,7 +1251,7 @@ def beat_classification(beat_model,
                     beats = np.asarray(beats)
                     symbols = np.asarray(symbols)
                     amps = np.asarray(amps)
-                    beats, symbols, amps = beat_select(beats, symbols, amps, buf_ecg_filter, sampling_rate)
+                    # beats, symbols, amps = beat_select(beats, symbols, amps, buf_ecg_filter, sampling_rate)
         except Exception as err:
             print(err)
 
@@ -1789,7 +1799,6 @@ def process_beat_classification_retrain(process_index,
 
     log_lines = []
     for file_name in file_list:
-
         start = time.perf_counter()
         if basename(file_name) == '114':
             channel_ecg = 1

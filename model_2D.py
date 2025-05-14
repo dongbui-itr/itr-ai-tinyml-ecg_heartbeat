@@ -501,8 +501,7 @@ def beat_concat_seq4_250Hz(feature_len,
                            num_loop=3,
                            rate=0.5,
                            output_len=78,
-                           name='beat_concat_seq3_250Hz',
-                           retrain=False):
+                           name='beat_concat_seq3_250Hz', retrain=False):
     """
 
     """
@@ -542,8 +541,8 @@ def beat_concat_seq4_250Hz(feature_len,
         f1, f2 = ff
         name = 'stage_{}'.format(st)
         # 1x1 Convolution (stride=2)
-        if st > 1:
-            strides = 2
+        if st > 3:
+            strides = 1
         else:
             strides = 2
 
@@ -556,7 +555,6 @@ def beat_concat_seq4_250Hz(feature_len,
                             bn=False,
                             rate=1.0,
                             name="skip12_" + name)
-        # Batch norm, Activation, Dropout, Convolution (stride=2)
         x = conv2d_net(x=x,
                        num_filters=f1,
                        kernel_size=3,
@@ -566,8 +564,6 @@ def beat_concat_seq4_250Hz(feature_len,
                        bn=True,
                        rate=0.5,
                        name="resnet12_" + name)
-        # Batch norm, Activation, Dropout, Convolution (stride=1)
-        # print(f"{st} - {name}\n")
 
         x = conv2d_net_squeeze_2(x=x,
                                  num_filters=f2,
@@ -587,19 +583,16 @@ def beat_concat_seq4_250Hz(feature_len,
     if not retrain:
         x = conv2d_net(x=x,
                        num_filters=num_of_class,
-                       kernel_size=4,
+                       kernel_size=(1, 2),
                        strides=1,
-                       pad='SAME',
+                       pad='VALID',
                        act=False,
                        bn=False,
                        rate=1.0,
                        name="pre_last_conv")
 
-        x = tf.concat((x[:, :, :output_len, :], x[:, :, 1:output_len + 1, :]), axis=-1)
-        x = keras.layers.Flatten()(x)
-        logits_layer1 = keras.layers.Dense(output_len*num_of_class)(x)
+        logits_layer1 = keras.layers.Dense(num_of_class)(x)
         softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer1)
-        softmax_layer = tf.rehape(softmax_layer, [-1, output_len, num_of_class])
         return keras.Model(input_layer, softmax_layer, name=name)
     else:
         x = conv2d_net(x=x,
@@ -617,6 +610,22 @@ def beat_concat_seq4_250Hz(feature_len,
         train_model = keras.Model(input_layer, softmax_layer)
 
         return train_model
+
+    # logits_layer1 = keras.layers.Dense(num_of_class)(x)
+    # lstm_layer = keras.layers.Bidirectional(
+    #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(x)
+    # lstm_layer = keras.layers.Bidirectional(
+    #     keras.layers.LSTM(x.shape[-1], return_sequences=True, dropout=rate))(lstm_layer)
+    #
+    # logits_layer2 = keras.layers.Dense(num_of_class)(lstm_layer)
+    #
+    # logits_layer = keras.layers.Add()([logits_layer1, logits_layer2])
+    # softmax_layer = keras.layers.Softmax(axis=-1)(logits_layer)
+    #
+    # if not from_logits:
+    #     return keras.Model(input_layer, softmax_layer, name=name)
+    # else:
+    #     return keras.Model(input_layer, logits_layer, name=name)
 
 
 def beat_seq_mobilenet_v2_1d(feature_len,
@@ -720,12 +729,12 @@ def test_model():
     # model = beat_concat_seq_add_more2_128Hz(feature_len=feature_len,
     #                               num_of_class=num_of_class)
     # model = beat_concat_seq2_add_more2_128Hz(feature_len=640,
-    model = beat_concat_seq3_250Hz(feature_len=1250,
+    model = beat_concat_seq4_250Hz(feature_len=1250,
                                    # model = beat_depthwise2_128Hz(feature_len=640,
                                    # model = beat_concat_sequeeze_add_more2_128Hz(feature_len=640,
                                    num_of_class=4,
                                    from_logits=False,
-                                   filters_rhythm_net=[8, 24, 8],  #[8, 16, 32],
+                                   filters_rhythm_net=[4, 8, 16, 8, 4],  #[8, 16, 32],
                                    num_loop=2,
                                    rate=0.5,
                                    name='beat_concat_seq_add_more2_other')
@@ -735,7 +744,7 @@ def test_model():
             print(s, file=f)
 
     # model.summary(print_fn=myprint)
-    # model.summary()
+    model.summary()
 
     import numpy as np
     # label = np.random.randint(2, size=(1000000, 1, 78, 4))

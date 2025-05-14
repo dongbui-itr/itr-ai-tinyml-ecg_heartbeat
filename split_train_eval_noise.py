@@ -18,8 +18,6 @@ DATAPATH = '/mnt/4T_DATA/DATA_4TINYML/strip2/'
 def split_data_2(data_dir=DATAPATH,
                  output_path='/mnt/Dataset/ECG/PortalData_2/QRS_Classification_portal_data/240520/', ratio_train = 8 / 10, k=0):
     print("Mixing Study")
-    if os.path.exists(output_path + 'log_data_noise.json'):
-        shutil.move(output_path + 'log_data_noise.json', output_path + f'log_data_noise{k}.json')
     while True:
         statictis_type = {}
         statictis_type["train"] = dict()
@@ -48,7 +46,8 @@ def split_data_2(data_dir=DATAPATH,
                 print(event)
                 studies_path = os.listdir(f'{data_dir}/{event}/')
                 event_statictis_type[event] = {}
-                print('Number of {} files: {}'.format(event, len(studies_path)))
+                print('Number of {} studies: {}'.format(event, len(studies_path)))
+                total_files = 0
                 for type in CLASS_TYPES:
                     event_statictis_type[event]['total_{}'.format(type)] = 0
                     event_statictis_type["train"]['total_{}'.format(type)] = 0
@@ -59,9 +58,6 @@ def split_data_2(data_dir=DATAPATH,
                 idx = np.arange(len(studies_path), dtype=int)
                 np.random.shuffle(idx)
                 np.random.shuffle(idx)
-                # np.random.shuffle(idx)
-                # np.random.shuffle(idx)
-                # np.random.shuffle(idx)
                 cnt_study = 0
                 for study in studies_path:
                     study_id = study.split('/')[-1]
@@ -77,6 +73,7 @@ def split_data_2(data_dir=DATAPATH,
                         event_statictis_type[event][study_id]['path'] = study_id
 
                     files = [i[:-4] for i in glob(f'{data_dir}/{event}/{study}/*.atr')]
+                    total_files += len(files)
                     for file in files:
                         ann = wf.rdann(file, 'atr')
                         symbol = ann.symbol
@@ -95,7 +92,7 @@ def split_data_2(data_dir=DATAPATH,
                             # else:
                             #     _key = copy.deepcopy(key)
                             if key not in CLASS_TYPES:
-                                print(f'key={key}')
+                                # print(f'key={key}')
                                 continue
 
                             try:
@@ -105,11 +102,11 @@ def split_data_2(data_dir=DATAPATH,
                                     event_statictis_type["train"]['total_{}'.format(key)] += symbol_statictis[key]
                                 else:
                                     event_statictis_type["eval"]['total_{}'.format(key)] += symbol_statictis[key]
-
                             except:
                                 a=10
-
+                print(f'Total of files: {total_files}')
                 print(f'k={k}')
+                print(f"N: {event_statictis_type['train']['total_N']} vs {event_statictis_type['eval']['total_N']}")
                 print(f"S: {event_statictis_type['train']['total_S']} vs {event_statictis_type['eval']['total_S']}")
                 print(f"V: {event_statictis_type['train']['total_V']} vs {event_statictis_type['eval']['total_V']}")
                 if ((event_statictis_type['train']['total_S'] > event_statictis_type['eval']['total_S'] and
@@ -137,7 +134,6 @@ def split_data_2(data_dir=DATAPATH,
                     flag_stop = False
         if flag_stop:
             break
-
 
         # break
     print(f'{output_path}/log_random_data.json')
@@ -217,8 +213,6 @@ def statistic_study(
 
     print('Total Study:', cnt_study)
     # df_statistic = pd.DataFrame(statistic).to_excel(os.path.dirname(excel) + 'statistic_study.xlsx')
-
-    a = 10
 
 
 if __name__ == '__main__':

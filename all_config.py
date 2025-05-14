@@ -61,8 +61,8 @@ CLASS_TYPES = ['N', 'V', 'S', 'R', '|']
 CLASS_WEIGHTS = {
         0: 1,
         1: 3,
-        # 2: 6,
-        # 3: 3,
+        2: 3,
+        3: 3,
     }
 
 CLASS_WEIGHTS_RETRAIN = {
@@ -73,24 +73,24 @@ CLASS_WEIGHTS_RETRAIN = {
 
 OVERLAB_IN_FILE = 3
 OVERLAB = 1
-OFFSET_FRAME_BEAT = [0, 5]
+OFFSET_FRAME_BEAT = [0]
 
 PATH_DATA_EC57 = '/mnt/Dataset//ECG/PhysionetData/'
 DB_TESTING = [
-        # ['mitdb', 'atr', 'atr'],
+        ['mitdb', 'atr', 'atr'],
         ['nstdb', 'atr', 'atr'],
-        # ['ahadb', 'atr', 'atr'],
-        # ['escdb', 'atr', 'atr'],
-        # ['afdb', 'qrs', 'atr'],
+        ['ahadb', 'atr', 'atr'],
+        ['escdb', 'atr', 'atr'],
+        ['afdb', 'qrs', 'atr'],
     ]
 
 
 SAMP_FROM = 0
 SAMP_TO = 0
 
-FILE_NAME = '118e_6'
-DEBUG = True
+# FILE_NAME = '8204'
+# DEBUG = True
 
-# FILE_NAME = '*'
-# DEBUG = False
+FILE_NAME = '*'
+DEBUG = False
 
